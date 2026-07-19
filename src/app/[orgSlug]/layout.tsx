@@ -1,0 +1,18 @@
+import type { ReactNode } from 'react'
+import { TenantAppShell } from '@/components/onedayos'
+import { sdk } from '@/sdk/server'
+import { buildTenantAppShellModel } from '@/platform/navigation/tenant-navigation'
+
+export default async function OrgLayout({
+  children,
+  params,
+}: {
+  children: ReactNode
+  params: Promise<{ orgSlug: string }>
+}) {
+  const { orgSlug } = await params
+  const ctx = await sdk.auth.requirePageOrgContext(orgSlug)
+  const model = buildTenantAppShellModel(ctx)
+
+  return <TenantAppShell model={model}>{children}</TenantAppShell>
+}

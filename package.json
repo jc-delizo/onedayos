@@ -1,0 +1,74 @@
+{
+  "name": "onedayos-platform",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "next dev -p 1320",
+    "build": "prisma generate && next build",
+    "start": "next start -p 1320",
+    "lint": "eslint .",
+    "typecheck": "prisma generate && tsx scripts/clean-next-dev-types.ts && tsc --noEmit",
+    "test": "vitest",
+    "test:run": "prisma generate && vitest run",
+    "test:unit": "vitest run",
+    "test:api": "vitest run src/app src/kernel/api src/kernel/auth",
+    "test:security": "vitest run src/kernel src/sdk scripts",
+    "check:env": "tsx scripts/check-env.ts",
+    "check:prisma": "prisma validate && prisma generate",
+    "check:architecture": "tsx scripts/check-architecture.ts",
+    "check:generated": "tsx scripts/check-generated.ts",
+    "check:ux": "tsx scripts/check-ux.ts",
+    "test:a11y": "vitest run src/components/onedayos/patterns/__tests__/accessibility.test.tsx src/modules/inventory/__tests__/accessibility.test.tsx",
+    "demo:provision": "tsx scripts/provision-sandbox-demo.ts",
+    "demo:check": "tsx scripts/check-demo-readiness.ts",
+    "demo:reset": "tsx scripts/reset-sandbox-demo.ts",
+    "demo:enrich-inventory": "tsx scripts/enrich-sandbox-inventory-demo.ts",
+    "module:create": "tsx scripts/create-module.ts",
+    "check:all": "npm run check:env && npm run check:prisma && npm run lint && npm run typecheck && npm run check:architecture && npm run check:generated && npm run check:ux && npm run test:run && npm run test:a11y && npm run build"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "@supabase/ssr": "0.12.0",
+    "@supabase/supabase-js": "2.110.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "1.25.0",
+    "next": "16.2.10",
+    "pg": "8.22.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "server-only": "0.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.6",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "axe-core": "4.12.1",
+    "dotenv": "17.4.2",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.10",
+    "jiti": "2.6.1",
+    "jsdom": "^29.1.1",
+    "prisma": "7.8.0",
+    "tailwindcss": "4.3.2",
+    "tsx": "4.23.0",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "@prisma/dev": {
+      "@hono/node-server": "1.19.13"
+    }
+  }
+}

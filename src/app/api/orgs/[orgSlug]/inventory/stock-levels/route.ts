@@ -1,0 +1,18 @@
+import type { NextRequest } from 'next/server'
+import { sdk } from '@/sdk/server'
+import { stockLevelQuerySchema } from '@/modules/inventory/schema'
+import { InventoryService } from '@/modules/inventory/service'
+
+type RouteContext = {
+  params: Promise<{ orgSlug: string }>
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  return sdk.api.handle(async (handledRequest, requestId) => {
+    const { orgSlug } = await context.params
+    const ctx = await sdk.auth.requireApiModuleContext(handledRequest, orgSlug, 'inventory', requestId)
+    const query = sdk.api.parseSearchParams(handledRequest.nextUrl.searchParams, stockLevelQuerySchema)
+    const data = await InventoryService.listStockLevels(ctx, query)
+    return sdk.api.ok(data)
+  })(request)
+}

@@ -1,0 +1,1803 @@
+# OneDayOS Engineering Manual — Business Objects: Customer
+
+Version: 1.0  
+Status: Draft for Founder Review  
+Owner: OneDayOS Founding Architect  
+Last Updated: July 2026  
+Implementation Allowed: No — freeze required before implementation  
+Manual Path: `docs/engineering-manual/07-business-objects/03-customer.md`
+
+---
+
+# 1. Purpose
+
+This document defines the **Customer** Business Object for OneDayOS.
+
+A Customer is a shared business entity representing an external person, company, client, account, buyer, guest, patient, tenant, or organization that the OneDayOS tenant does business with.
+
+Customer is **not owned by CRM**.
+
+Customer is shared across modules such as:
+
+```txt
+CRM
+Reservations
+Sales
+Billing
+Projects
+Support
+Incident Reporting
+Visitor Management
+Purchasing exceptions
+Service requests
+Future Accounting
+Future Invoicing
+Future AI support
+```
+
+The goal of this document is to prevent every module from creating its own version of a customer.
+
+---
+
+# 2. Core Decision
+
+## Customer is a Business Object
+
+Customer belongs to the **Business Objects** layer.
+
+It does not belong to:
+
+```txt
+Kernel
+CRM
+Reservations
+Billing
+Projects
+Support
+Client Configuration
+```
+
+CRM may manage customer relationships.
+
+Reservations may book customers.
+
+Billing may invoice customers.
+
+Projects may assign customers to work.
+
+Support may track customer issues.
+
+But none of those modules owns the Customer identity.
+
+The correct mental model is:
+
+```txt
+Customer = shared business identity
+CRM = relationship and pipeline behavior around Customer
+Reservations = booking behavior around Customer
+Billing = invoicing/payment behavior around Customer
+Projects = delivery/work behavior around Customer
+Support = issue/service behavior around Customer
+```
+
+---
+
+# 3. Why This Matters
+
+If CRM owns Customer, then future modules will be forced to either:
+
+```txt
+import from CRM
+duplicate Customer
+or store customer text fields manually
+```
+
+All three are unacceptable.
+
+OneDayOS must support one shared Customer identity across the platform.
+
+A client should not have:
+
+```txt
+CRM Customer
+Reservation Customer
+Billing Customer
+Support Customer
+Project Customer
+```
+
+They should have:
+
+```txt
+Customer
+```
+
+Then modules attach their own behavior around that Customer.
+
+---
+
+# 4. Non-Goals
+
+The Customer Business Object must stay minimal.
+
+This document does **not** define:
+
+```txt
+CRM pipeline stages
+Lead scoring
+Sales opportunities
+Customer lifecycle status
+Customer source campaign
+Sales owner
+Credit limit
+Payment terms
+TIN / tax profile
+Invoicing profile
+Reservation preferences
+Support SLA tier
+Loyalty points
+Customer documents
+Multiple contact persons
+Contracts
+Customer portal access
+Customer segmentation
+Marketing consent
+```
+
+Those belong to modules or future extensions unless they satisfy the Three Independent Use Cases Rule.
+
+---
+
+# 5. Customer vs Lead vs Contact vs User
+
+## 5.1 Customer
+
+A Customer is someone the organization does or may do business with.
+
+Examples:
+
+```txt
+Juan dela Cruz
+ABC Trading Corporation
+Maria Santos
+North Luzon Hardware
+Tenant A
+Guest B
+Client C
+```
+
+Customer is a shared Business Object.
+
+---
+
+## 5.2 Lead
+
+A Lead is a CRM concept.
+
+A lead may eventually become a Customer, but lead qualification, pipeline stage, source, probability, and sales owner belong to CRM.
+
+Do not put lead fields on Customer.
+
+Bad:
+
+```txt
+Customer.stage
+Customer.leadScore
+Customer.pipelineValue
+Customer.salesOwnerId
+Customer.sourceCampaign
+```
+
+Good:
+
+```txt
+CrmLead
+CrmOpportunity
+CrmCustomerExtension
+```
+
+---
+
+## 5.3 Contact Person
+
+A contact person is a specific human contact associated with a Customer.
+
+For MVP, Customer may have simple direct contact fields:
+
+```txt
+email
+phone
+address
+```
+
+Do not build a full Contact Person engine yet.
+
+Future examples:
+
+```txt
+CustomerContact
+CustomerAddress
+BillingContact
+SiteContact
+```
+
+These should be introduced only when repeated module needs prove them necessary.
+
+---
+
+## 5.4 User
+
+A User is a OneDayOS login identity.
+
+A Customer is not a User.
+
+A future Customer Portal may allow a customer to log in, but that should be a separate future design.
+
+For MVP:
+
+```txt
+User = internal platform user
+Customer = external business entity
+```
+
+Do not link Customer to User in MVP.
+
+---
+
+# 6. Minimum Data Model
+
+The Customer core model should contain only fields that are broadly useful across modules.
+
+Recommended MVP fields:
+
+```prisma
+model Customer {
+  id        String   @id @default(cuid())
+  orgId     String
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([id, orgId])
+  @@index([orgId, name])
+  @@index([orgId, email])
+  @@index([orgId, phone])
+  @@map("customers")
+}
+```
+
+---
+
+# 7. Field Rules
+
+## 7.1 `id`
+
+Primary identifier.
+
+Generated by the platform.
+
+The client must never submit this on create.
+
+---
+
+## 7.2 `orgId`
+
+Tenant boundary.
+
+Required on every Customer row.
+
+Derived from verified `PlatformContext`.
+
+Never accepted from client input.
+
+Bad:
+
+```ts
+const orgId = body.orgId
+```
+
+Good:
+
+```ts
+const ctx = await sdk.auth.requireApiObjectContext(req, orgSlug, 'customer')
+const customer = await CustomerService.create(ctx, input)
+```
+
+---
+
+## 7.3 `name`
+
+Required display name.
+
+Used for:
+
+```txt
+Customer list
+Customer picker
+Search
+Reports
+Exports
+Module references
+```
+
+This can represent either a person or company.
+
+Examples:
+
+```txt
+Juan dela Cruz
+ABC Trading Corporation
+Maria Santos
+JRS Hardware
+```
+
+Do not split into `firstName` / `lastName` in core Customer for MVP.
+
+Reason:
+
+Philippine SME records often contain a mix of individuals, businesses, trade names, and informal customer names. A single `name` field is more flexible for the first version.
+
+If a module needs structured personal names, use a module extension first.
+
+---
+
+## 7.4 `email`
+
+Optional.
+
+Email may be absent, duplicated, shared by a family/business, or unknown.
+
+Do not make email globally unique.
+
+Do not make email org-unique in MVP.
+
+Reason:
+
+Many SMEs have incomplete customer records. Requiring unique email will block legitimate data entry and imports.
+
+---
+
+## 7.5 `phone`
+
+Optional.
+
+Do not over-validate phone numbers in MVP.
+
+Phone formats in real SME data may include:
+
+```txt
+09171234567
++639171234567
+02 8123 4567
+(02) 8123-4567
+landline ext 123
+unknown
+```
+
+Validation should trim and limit length, not enforce an overly strict international format.
+
+---
+
+## 7.6 `address`
+
+Optional.
+
+Use one free-text address field in MVP.
+
+Do not prematurely create:
+
+```txt
+street
+barangay
+city
+province
+postalCode
+country
+billingAddress
+shippingAddress
+```
+
+Those may be introduced later through extensions or dedicated address models when real module needs demand them.
+
+---
+
+## 7.7 `deletedAt` and `deletedBy`
+
+Soft-delete lifecycle fields.
+
+A deleted Customer should disappear from normal lists, selectors, reports, and AI context.
+
+Deleted customers should remain restorable by authorized users.
+
+Hard delete is not allowed for normal business operations.
+
+---
+
+# 8. Fields Excluded from Core Customer
+
+The following fields must **not** be added to core Customer in MVP:
+
+```txt
+customerCode
+customerType
+companyName
+firstName
+lastName
+tin
+vatStatus
+paymentTerms
+creditLimit
+salesOwnerId
+leadSource
+pipelineStage
+lifecycleStatus
+industry
+segment
+birthday
+anniversary
+loyaltyPoints
+defaultPriceListId
+billingAddress
+shippingAddress
+customerPortalUserId
+notes
+tags
+attachments
+```
+
+Some of these may become valid later.
+
+But they must be introduced through:
+
+```txt
+module extension tables
+Platform Services
+or a frozen amendment after repeated use is proven
+```
+
+---
+
+# 9. Customer Code Decision
+
+Do not add `customerCode` to core Customer in MVP.
+
+Reason:
+
+Some businesses use customer codes.
+
+Some do not.
+
+Some customer identifiers are generated by accounting.
+
+Some are CRM account numbers.
+
+Some are loyalty IDs.
+
+Some are external system IDs.
+
+Adding `customerCode` too early risks creating a field with unclear ownership.
+
+Recommended pattern:
+
+```txt
+CRM customer number → CrmCustomerExtension.customerCode
+Billing account number → BillingCustomerExtension.accountNo
+External import ID → IntegrationMapping.externalId
+```
+
+If three independent modules need the same stable customer code, promote it later through an amendment.
+
+---
+
+# 10. Customer Type Decision
+
+Do not add `customerType` to core Customer in MVP.
+
+Possible future values:
+
+```txt
+individual
+company
+government
+nonprofit
+internal
+```
+
+This sounds useful, but it creates second-order questions:
+
+```txt
+Should individual customers have first/last name?
+Should companies have contact persons?
+Should government customers have agency IDs?
+Should billing require TIN?
+Should reservations care?
+```
+
+For MVP, store the display identity in `name`.
+
+Promote `customerType` only when real workflows prove the need.
+
+---
+
+# 11. Tenant Isolation Rules
+
+Customer is tenant-scoped.
+
+Every Customer operation must follow this sequence:
+
+```txt
+1. Authenticate request
+2. Resolve orgSlug
+3. Verify user belongs to organization
+4. Create PlatformContext
+5. Verify module/object permission
+6. Validate input
+7. Run CustomerService using ctx
+8. Query using ctx.org.id
+9. Return API response
+```
+
+Never query Customer by ID alone.
+
+Bad:
+
+```ts
+await prisma.customer.findUnique({
+  where: { id: customerId },
+})
+```
+
+Good:
+
+```ts
+await db.customer.findFirst({
+  where: {
+    id: customerId,
+    orgId: ctx.org.id,
+    deletedAt: null,
+  },
+})
+```
+
+For tenant-scoped relations, prefer composite-safe references:
+
+```prisma
+@@unique([id, orgId])
+```
+
+Then module-owned tables may reference Customer with both `customerId` and `orgId`.
+
+---
+
+# 12. API Contract
+
+Customer APIs should live under the Business Object API namespace:
+
+```txt
+GET    /api/orgs/[orgSlug]/objects/customers
+POST   /api/orgs/[orgSlug]/objects/customers
+GET    /api/orgs/[orgSlug]/objects/customers/[customerId]
+PATCH  /api/orgs/[orgSlug]/objects/customers/[customerId]
+DELETE /api/orgs/[orgSlug]/objects/customers/[customerId]
+POST   /api/orgs/[orgSlug]/objects/customers/[customerId]/restore
+```
+
+Do not create CRM-owned Customer APIs such as:
+
+```txt
+/api/orgs/[orgSlug]/crm/customers
+```
+
+CRM may have CRM-specific APIs, but the shared Customer object belongs under:
+
+```txt
+/api/orgs/[orgSlug]/objects/customers
+```
+
+---
+
+# 13. API Response Shape
+
+All Customer APIs must use the Kernel API contract:
+
+```json
+{
+  "data": {},
+  "error": null
+}
+```
+
+or:
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input.",
+    "details": {}
+  }
+}
+```
+
+API routes must never redirect.
+
+Unauthenticated API requests return JSON `401`.
+
+Unauthorized API requests return JSON `403`.
+
+Wrong-org access should return safe `404`.
+
+---
+
+# 14. Input Validation
+
+Customer input schemas must use Zod strict objects.
+
+Create schema:
+
+```ts
+import { z } from 'zod'
+
+export const createCustomerSchema = z.strictObject({
+  name: z.string().trim().min(1).max(200),
+  email: z.email().trim().max(320).optional().nullable(),
+  phone: z.string().trim().min(1).max(50).optional().nullable(),
+  address: z.string().trim().min(1).max(500).optional().nullable(),
+})
+```
+
+Update schema:
+
+```ts
+export const updateCustomerSchema = createCustomerSchema.partial().refine(
+  (value) => Object.keys(value).length > 0,
+  { message: 'At least one field is required.' }
+)
+```
+
+The schemas must reject unknown keys.
+
+This means the following payload should fail:
+
+```json
+{
+  "name": "ABC Trading",
+  "orgId": "org_other"
+}
+```
+
+Client-supplied `orgId` must be rejected, not ignored.
+
+---
+
+# 15. Normalization Rules
+
+Before saving:
+
+```txt
+Trim name
+Trim email
+Lowercase email if present
+Trim phone
+Trim address
+Convert empty optional strings to null
+```
+
+Do not normalize phone numbers aggressively in MVP.
+
+Do not attempt automatic address parsing.
+
+---
+
+# 16. Service Contract
+
+Customer logic belongs in a Business Object service.
+
+Recommended location:
+
+```txt
+src/business-objects/customers/customer.service.ts
+```
+
+or:
+
+```txt
+src/objects/customers/customer.service.ts
+```
+
+The final folder structure should be decided in the repository architecture document, but the rules are fixed:
+
+```txt
+Customer service is not inside CRM.
+Customer service is not inside Kernel internals.
+Customer service uses @/sdk/server.
+Customer service receives PlatformContext.
+```
+
+Recommended service interface:
+
+```ts
+export class CustomerService {
+  static async list(ctx: PlatformContext, input: ListCustomersInput): Promise<CustomerListItem[]>
+
+  static async getById(ctx: PlatformContext, customerId: string): Promise<CustomerDetail | null>
+
+  static async create(ctx: PlatformContext, input: CreateCustomerInput): Promise<CustomerDetail>
+
+  static async update(
+    ctx: PlatformContext,
+    customerId: string,
+    input: UpdateCustomerInput
+  ): Promise<CustomerDetail>
+
+  static async softDelete(ctx: PlatformContext, customerId: string): Promise<void>
+
+  static async restore(ctx: PlatformContext, customerId: string): Promise<CustomerDetail>
+}
+```
+
+The service must not accept `orgId` as a standalone parameter.
+
+Bad:
+
+```ts
+CustomerService.create(orgId, input)
+```
+
+Good:
+
+```ts
+CustomerService.create(ctx, input)
+```
+
+---
+
+# 17. Database Access Rules
+
+Customer services must access the database through:
+
+```ts
+const db = sdk.getDb(ctx)
+```
+
+Forbidden:
+
+```ts
+import { prisma } from '@/kernel/db/client'
+```
+
+Forbidden in Customer service:
+
+```ts
+sdk.getDb(orgId)
+```
+
+Forbidden:
+
+```ts
+db.customer.findUnique({ where: { id } })
+```
+
+Required for tenant-scoped reads:
+
+```ts
+db.customer.findFirst({
+  where: {
+    id: customerId,
+    orgId: ctx.org.id,
+    deletedAt: null,
+  },
+})
+```
+
+---
+
+# 18. Permission Model
+
+Customer permissions use the `objects` namespace.
+
+Recommended permissions:
+
+```txt
+objects.customer.read
+objects.customer.create
+objects.customer.update
+objects.customer.delete
+objects.customer.restore
+```
+
+Future permissions:
+
+```txt
+objects.customer.export
+objects.customer.import
+objects.customer.merge
+objects.customer.view_deleted
+```
+
+Do not use:
+
+```txt
+crm.customer.read
+crm.customer.create
+```
+
+unless the permission is specifically for CRM behavior around Customer.
+
+Examples:
+
+```txt
+objects.customer.read
+crm.opportunity.read
+crm.customer_extension.update
+billing.customer_terms.update
+reservations.customer_preferences.update
+```
+
+---
+
+# 19. Permission Enforcement
+
+API route example:
+
+```ts
+export const POST = sdk.api.handle(async ({ req, params }) => {
+  const ctx = await sdk.auth.requireApiObjectContext(req, params.orgSlug, 'customer')
+
+  await sdk.permissions.require(ctx, {
+    module: 'objects',
+    resource: 'customer',
+    action: 'create',
+  })
+
+  const input = await sdk.validation.parseJson(req, createCustomerSchema)
+
+  const customer = await CustomerService.create(ctx, input)
+
+  return sdk.api.created(customer)
+})
+```
+
+Service-level enforcement should either:
+
+1. receive a pre-authorized context generated by the route, or
+2. call `sdk.permissions.require()` internally for sensitive mutations.
+
+For MVP, prefer route-level permission checks plus service-level tenant scoping.
+
+For high-risk operations such as restore, merge, import, and export, also enforce inside the service.
+
+---
+
+# 20. Event Contract
+
+Customer mutations must emit Business Object events.
+
+Events use the `objects` namespace:
+
+```txt
+objects.customer.created
+objects.customer.updated
+objects.customer.deleted
+objects.customer.restored
+```
+
+Future:
+
+```txt
+objects.customer.merged
+```
+
+Do not emit:
+
+```txt
+crm.customer.created
+```
+
+unless CRM created a CRM-specific record.
+
+---
+
+# 21. Event Payloads
+
+Customer event payloads must be small and stable.
+
+Recommended created payload:
+
+```ts
+type CustomerCreatedPayload = {
+  customerId: string
+}
+```
+
+Recommended updated payload:
+
+```ts
+type CustomerUpdatedPayload = {
+  customerId: string
+  changedFields: string[]
+}
+```
+
+Recommended deleted payload:
+
+```ts
+type CustomerDeletedPayload = {
+  customerId: string
+}
+```
+
+Avoid full Customer records in events.
+
+Bad:
+
+```ts
+await sdk.events.emit(ctx, 'objects.customer.created', customer)
+```
+
+Good:
+
+```ts
+await sdk.events.emit(ctx, 'objects.customer.created', {
+  customerId: customer.id,
+})
+```
+
+Reason:
+
+Customer data may contain personal information. Event payloads should minimize unnecessary duplication and reduce risk of leakage into logs, notifications, or future background queues.
+
+---
+
+# 22. Soft Delete Behavior
+
+Deleting a Customer must soft-delete the row.
+
+```ts
+await db.customer.update({
+  where: {
+    id_orgId: {
+      id: customerId,
+      orgId: ctx.org.id,
+    },
+  },
+  data: {
+    deletedAt: new Date(),
+    deletedBy: ctx.user.id,
+  },
+})
+```
+
+If the exact Prisma compound selector differs, the implementation must still scope by both:
+
+```txt
+customerId
+orgId
+```
+
+Normal Customer reads exclude deleted records.
+
+Deleted Customers:
+
+```txt
+do not appear in selectors
+do not appear in normal search
+do not appear in normal exports
+do not appear in normal reports
+do not appear in AI context
+may still be referenced by historical records
+may be restored by authorized users
+```
+
+---
+
+# 23. Restore Behavior
+
+Restore must be explicit.
+
+Restore route:
+
+```txt
+POST /api/orgs/[orgSlug]/objects/customers/[customerId]/restore
+```
+
+Restore requires:
+
+```txt
+objects.customer.restore
+```
+
+Restore must emit:
+
+```txt
+objects.customer.restored
+```
+
+Restoring a Customer should not automatically restore module extension records unless the module explicitly defines that behavior.
+
+Example:
+
+```txt
+Customer restored
+CRM extension remains deleted unless CRM restore flow restores it
+Billing extension remains unchanged unless Billing restore flow restores it
+```
+
+This avoids hidden cross-module side effects.
+
+---
+
+# 24. Hard Delete Policy
+
+Hard delete is forbidden for normal business operations.
+
+Hard delete may only be allowed through a future administrative data-retention or compliance process.
+
+Even then, it should usually be implemented as anonymization, not physical deletion.
+
+Example future anonymization:
+
+```txt
+name = 'Deleted Customer'
+email = null
+phone = null
+address = null
+deletedAt = timestamp
+deletedBy = admin user
+```
+
+Do not build this in MVP unless legally required.
+
+---
+
+# 25. Duplicate Handling
+
+Do not build automatic deduplication in MVP.
+
+Customer data in SMEs is messy. Automatic merging can destroy business history.
+
+MVP behavior:
+
+```txt
+Allow duplicate names
+Allow duplicate emails
+Allow duplicate phones
+Provide search to help users avoid duplicates
+Do not auto-merge
+Do not block creates based on email or phone
+```
+
+Future duplicate management may include:
+
+```txt
+duplicate suggestions
+manual merge
+merge audit trail
+module extension merge hooks
+```
+
+Manual merge is a separate future feature and should require:
+
+```txt
+objects.customer.merge
+```
+
+---
+
+# 26. Search Behavior
+
+Customer list should support basic search.
+
+MVP searchable fields:
+
+```txt
+name
+email
+phone
+address
+```
+
+Search must be tenant-scoped.
+
+Bad:
+
+```ts
+where: {
+  OR: [
+    { name: { contains: query } },
+    { email: { contains: query } },
+  ],
+}
+```
+
+Good:
+
+```ts
+where: {
+  orgId: ctx.org.id,
+  deletedAt: null,
+  OR: [
+    { name: { contains: query, mode: 'insensitive' } },
+    { email: { contains: query, mode: 'insensitive' } },
+    { phone: { contains: query, mode: 'insensitive' } },
+  ],
+}
+```
+
+Future Platform Search may index Customer, but it must still enforce:
+
+```txt
+tenant scope
+permissions
+soft delete
+```
+
+---
+
+# 27. Customer Picker
+
+Modules should not create their own customer lookup logic.
+
+Future shared component:
+
+```tsx
+<CustomerPicker />
+```
+
+or:
+
+```tsx
+<BusinessObjectPicker object="customer" />
+```
+
+The picker must:
+
+```txt
+search only within ctx.org.id
+exclude deleted customers
+respect objects.customer.read
+support create-new if user has objects.customer.create
+show useful empty state
+avoid leaking customers from other orgs
+```
+
+Until a formal picker exists, modules should use the shared Customer API/service patterns.
+
+---
+
+# 28. Module Extension Pattern
+
+Modules may extend Customer through their own tables.
+
+## CRM extension
+
+```prisma
+model CrmCustomerExtension {
+  id          String @id @default(cuid())
+  orgId       String
+  customerId  String
+  ownerUserId String?
+  source      String?
+  stage       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  customer Customer @relation(fields: [customerId, orgId], references: [id, orgId])
+
+  @@unique([orgId, customerId])
+  @@index([orgId, ownerUserId])
+  @@map("crm_customer_extensions")
+}
+```
+
+## Billing extension
+
+```prisma
+model BillingCustomerExtension {
+  id           String @id @default(cuid())
+  orgId        String
+  customerId   String
+  billingName  String?
+  paymentTerms String?
+  creditLimit  Decimal?
+  taxId        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
+
+  customer Customer @relation(fields: [customerId, orgId], references: [id, orgId])
+
+  @@unique([orgId, customerId])
+  @@map("billing_customer_extensions")
+}
+```
+
+## Reservations extension
+
+```prisma
+model ReservationsCustomerExtension {
+  id              String @id @default(cuid())
+  orgId           String
+  customerId      String
+  preferences     Json?
+  specialRequests String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  deletedBy       String?
+
+  customer Customer @relation(fields: [customerId, orgId], references: [id, orgId])
+
+  @@unique([orgId, customerId])
+  @@map("reservations_customer_extensions")
+}
+```
+
+These examples are illustrative. Do not implement all of them in MVP.
+
+---
+
+# 29. Module Relationship Examples
+
+## Reservation referencing Customer
+
+```prisma
+model Reservation {
+  id         String @id @default(cuid())
+  orgId      String
+  customerId String
+  startsAt   DateTime
+  endsAt     DateTime
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  deletedBy  String?
+
+  customer Customer @relation(fields: [customerId, orgId], references: [id, orgId])
+
+  @@index([orgId, customerId])
+  @@map("reservations")
+}
+```
+
+## Project referencing Customer
+
+```prisma
+model Project {
+  id         String @id @default(cuid())
+  orgId      String
+  customerId String?
+  name       String
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  deletedBy  String?
+
+  customer Customer? @relation(fields: [customerId, orgId], references: [id, orgId])
+
+  @@index([orgId, customerId])
+  @@map("projects")
+}
+```
+
+The important part is tenant-safe relation design:
+
+```txt
+customerId + orgId
+```
+
+not customer ID alone.
+
+---
+
+# 30. Historical Record Behavior
+
+If a Customer is deleted, historical records should remain readable.
+
+Example:
+
+```txt
+Invoice created for ABC Trading
+Customer later deleted
+Invoice should still show "ABC Trading" or a historical snapshot
+```
+
+For transaction-heavy modules, consider storing historical display snapshots:
+
+```txt
+customerNameSnapshot
+customerEmailSnapshot
+customerAddressSnapshot
+```
+
+This is module-specific.
+
+Do not force all modules to snapshot Customer fields.
+
+Billing and invoicing modules are more likely to need snapshots than CRM or support.
+
+---
+
+# 31. Reporting Behavior
+
+Reports using Customer must:
+
+```txt
+scope by orgId
+exclude deleted customers by default
+optionally include deleted customers only through explicit filter
+respect permissions
+avoid cross-tenant joins
+```
+
+Reports should not assume Customer belongs to CRM.
+
+Bad report namespace:
+
+```txt
+crm_customers_report
+```
+
+Good shared object report:
+
+```txt
+customers_report
+```
+
+CRM-specific report:
+
+```txt
+crm_pipeline_by_customer_report
+```
+
+---
+
+# 32. Import Behavior
+
+Customer import is deferred until the import/export engine exists.
+
+If a module needs customer import before the platform import engine exists, implement a narrow module-local import only after architectural review.
+
+Customer import must eventually support:
+
+```txt
+CSV upload
+field mapping
+validation preview
+duplicate warnings
+row-level error report
+tenant scope
+permission checks
+soft-delete awareness
+event emission
+```
+
+Customer import must not accept `orgId` per row from the CSV.
+
+The org is determined by the authenticated `PlatformContext`.
+
+---
+
+# 33. Export Behavior
+
+Customer export is deferred until export standards exist.
+
+When implemented, export requires:
+
+```txt
+objects.customer.export
+```
+
+Exports must:
+
+```txt
+scope by orgId
+exclude deleted customers unless explicitly included
+respect permissions
+record audit/event metadata if audit service exists
+avoid exporting module extension data unless requested and permitted
+```
+
+---
+
+# 34. AI Context Rules
+
+Customer data may contain personal information.
+
+AI access to Customer must be:
+
+```txt
+tenant-scoped
+permission-aware
+limited to relevant fields
+soft-delete aware
+logged or auditable in future
+```
+
+AI should not receive all Customer rows by default.
+
+Good AI context:
+
+```txt
+The organization has 124 active customers.
+Top matching customers for the user's query:
+- ABC Trading
+- Juan dela Cruz
+```
+
+Bad AI context:
+
+```txt
+Dump every customer name, email, phone, and address into the prompt.
+```
+
+Future AI actions involving Customer creation, update, merge, export, or delete must require confirmation.
+
+---
+
+# 35. UI Standards
+
+Customer UI should follow the OneDayOS design system.
+
+Required screens eventually:
+
+```txt
+Customer list
+Customer detail
+Create customer
+Edit customer
+Deleted/restorable customers view
+Customer picker
+```
+
+For MVP, if Customer CRUD is implemented before a full object UI framework exists, it must still follow:
+
+```txt
+shared table standards
+shared form standards
+empty/loading/error state standards
+keyboard-first behavior
+permission-aware actions
+optimistic UI where safe
+toast feedback
+```
+
+---
+
+# 36. Empty States
+
+Customer list empty state should help the user act.
+
+Bad:
+
+```txt
+No data.
+```
+
+Good:
+
+```txt
+No customers yet.
+Add your first customer or import a customer list to start using CRM, reservations, billing, and projects.
+```
+
+Show the create action only if the user has:
+
+```txt
+objects.customer.create
+```
+
+---
+
+# 37. Audit Readiness
+
+Even though the Audit Log Service is deferred, Customer mutations must emit events now.
+
+This enables future audit logging without retrofitting every Customer mutation.
+
+Customer service methods that mutate data must emit:
+
+```txt
+objects.customer.created
+objects.customer.updated
+objects.customer.deleted
+objects.customer.restored
+```
+
+When a future audit service subscribes, it should be able to construct audit entries from the event envelope plus database lookup.
+
+---
+
+# 38. Security Requirements
+
+Customer is a security-sensitive object because it may contain personally identifiable information.
+
+Required protections:
+
+```txt
+API auth
+tenant context verification
+permission enforcement
+server-side validation
+client-supplied orgId rejection
+soft-delete filtering
+safe 404 on wrong-org access
+no raw Prisma in modules
+no customer data in logs
+no full customer records in event payloads
+two-org security tests
+```
+
+Never log full Customer records.
+
+Bad:
+
+```ts
+console.log(customer)
+```
+
+Acceptable in development only if sanitized:
+
+```ts
+console.log('[customer.created]', { customerId: customer.id, orgId: ctx.org.id })
+```
+
+---
+
+# 39. Testing Requirements
+
+Customer implementation is not done without tests.
+
+## 39.1 Tenant isolation tests
+
+Required:
+
+```txt
+Org A user can list Org A customers
+Org A user cannot list Org B customers
+Org A user cannot read Org B customer by ID
+Org A user cannot update Org B customer
+Org A user cannot delete Org B customer
+Org A user cannot restore Org B customer
+```
+
+## 39.2 Permission tests
+
+Required:
+
+```txt
+User with objects.customer.read can list/read
+User without objects.customer.read gets 403
+User with objects.customer.create can create
+User without objects.customer.create gets 403
+User with objects.customer.update can update
+User without objects.customer.update gets 403
+User with objects.customer.delete can soft-delete
+User without objects.customer.delete gets 403
+User with objects.customer.restore can restore
+User without objects.customer.restore gets 403
+```
+
+## 39.3 Validation tests
+
+Required:
+
+```txt
+Missing name rejected
+Empty name rejected
+Too-long name rejected
+Invalid email rejected
+Unknown keys rejected
+Client-supplied orgId rejected
+Client-supplied deletedAt rejected
+Client-supplied deletedBy rejected
+```
+
+## 39.4 Soft-delete tests
+
+Required:
+
+```txt
+Deleted customer excluded from normal list
+Deleted customer excluded from picker
+Deleted customer returns 404 from normal detail endpoint
+Restore makes customer visible again
+Delete records deletedBy
+Delete emits objects.customer.deleted
+Restore emits objects.customer.restored
+```
+
+## 39.5 Event tests
+
+Required:
+
+```txt
+Create emits objects.customer.created
+Update emits objects.customer.updated with changedFields
+Delete emits objects.customer.deleted
+Restore emits objects.customer.restored
+Events use PlatformContext
+Events do not include full Customer record
+```
+
+## 39.6 Extension relation tests
+
+When modules reference Customer:
+
+```txt
+Module record cannot reference Customer from another org
+Module record can reference Customer from same org
+Deleting Customer does not hard-delete module records
+Deleted Customer behavior is documented in module UI
+```
+
+---
+
+# 40. Acceptance Criteria
+
+The Customer Business Object is correctly implemented when:
+
+```txt
+[ ] Customer model exists with orgId
+[ ] Customer has @@unique([id, orgId])
+[ ] Customer uses soft delete
+[ ] Customer APIs live under /api/orgs/[orgSlug]/objects/customers
+[ ] Customer APIs never redirect
+[ ] Customer APIs use { data, error }
+[ ] Customer create/update schemas are strict
+[ ] Customer schemas reject orgId
+[ ] Customer services receive PlatformContext
+[ ] Customer services use sdk.getDb(ctx)
+[ ] Customer services never import raw Prisma
+[ ] Customer reads are tenant-scoped
+[ ] Customer reads exclude deleted records by default
+[ ] Customer permissions use objects.customer.*
+[ ] Customer events use objects.customer.*
+[ ] Customer events do not include full Customer records
+[ ] CRM does not own Customer
+[ ] Reservations do not own Customer
+[ ] Billing does not own Customer
+[ ] Module extension tables reference Customer using customerId + orgId
+[ ] Tenant isolation tests use at least two organizations
+[ ] Permission tests include non-admin users
+[ ] Validation tests reject client-supplied orgId
+```
+
+---
+
+# 41. Forbidden Patterns
+
+Claude and engineers must not produce these patterns:
+
+```ts
+// CRM owning Customer
+src/modules/crm/customer.service.ts // for shared Customer CRUD
+```
+
+```ts
+// Module-owned duplicate customer table
+model CrmCustomer {
+  id String @id
+  name String
+}
+```
+
+```ts
+// Client-supplied orgId
+const orgId = body.orgId
+```
+
+```ts
+// Loose orgId service
+CustomerService.create(orgId, input)
+```
+
+```ts
+// Raw Prisma in module/customer service
+import { prisma } from '@/kernel/db/client'
+```
+
+```ts
+// ID-only tenant-scoped lookup
+db.customer.findUnique({ where: { id: customerId } })
+```
+
+```ts
+// CRM namespace for shared object event
+sdk.events.emit(ctx, 'crm.customer.created', payload)
+```
+
+```ts
+// Full customer record in event
+sdk.events.emit(ctx, 'objects.customer.created', customer)
+```
+
+```ts
+// Hard delete
+db.customer.delete({ where: { id: customerId } })
+```
+
+```ts
+// Redirect from API
+redirect('/login')
+```
+
+---
+
+# 42. Claude Implementation Instructions
+
+When implementing Customer, Claude must follow these instructions:
+
+```txt
+1. Read this document first.
+2. Do not place shared Customer CRUD inside CRM.
+3. Do not create module-owned duplicate Customer models.
+4. Use PlatformContext for every operation.
+5. Use sdk.getDb(ctx), never sdk.getDb(orgId).
+6. Do not import raw Prisma outside approved Kernel/Data boundaries.
+7. Reject client-supplied orgId.
+8. Use strict Zod schemas.
+9. Use /api/orgs/[orgSlug]/objects/customers routes.
+10. Enforce objects.customer.* permissions.
+11. Use soft delete, not hard delete.
+12. Emit objects.customer.* events on every mutation.
+13. Keep event payloads small.
+14. Add two-org tenant isolation tests.
+15. Add permission-denial tests with non-admin users.
+16. Add validation tests for unknown keys and orgId.
+17. Stop and report if this document conflicts with another frozen manual document.
+```
+
+---
+
+# 43. Open Questions
+
+These are intentionally left unresolved for future documents or ADRs:
+
+```txt
+Should Customer eventually support customerCode?
+Should Customer eventually support customerType?
+Should Contact Person become its own Business Object?
+Should CustomerAddress become its own Business Object?
+Should Customer merge be Platform Service behavior?
+Should Customer import/export be part of Dynamic CRUD or a separate Import Service?
+Should customer portal users become a separate identity model?
+```
+
+Do not answer these during MVP implementation unless the founder explicitly opens an ADR.
+
+---
+
+# 44. Final Principle
+
+Customer must remain boring, shared, and stable.
+
+The most dangerous mistake is to let CRM define Customer too early.
+
+OneDayOS should treat Customer the way serious business platforms do:
+
+```txt
+one Customer identity
+many module-specific behaviors
+no duplication
+no direct module ownership
+no cross-tenant leakage
+```
+
+A Customer created once should become usable everywhere the organization needs that customer.
+
+That is how OneDayOS becomes a Business Operating System instead of a collection of disconnected apps.

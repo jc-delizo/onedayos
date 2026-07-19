@@ -1,0 +1,131 @@
+import { existsSync } from 'node:fs'
+import { config as loadDotenv } from 'dotenv'
+import { PRODUCT_CATEGORY_PERMISSIONS, PRODUCT_PERMISSIONS } from '../src/business-objects/product/permissions'
+import { SUPPLIER_PERMISSIONS } from '../src/business-objects/supplier/permissions'
+import { WAREHOUSE_PERMISSIONS } from '../src/business-objects/warehouse/permissions'
+import { INVENTORY_PERMISSIONS } from '../src/modules/inventory/permissions'
+
+export const DEMO_ORG_SLUG_ENV = 'ONEDAYOS_DEMO_ORG_SLUG'
+export const WAREHOUSE_OPERATOR_ROLE_NAME = 'Warehouse Operator'
+
+export const PLACEHOLDER_PATTERNS = [
+  /YOUR-PASSWORD/i,
+  /\[YOUR-PASSWORD\]/i,
+  /CHOOSE_A_STRONG_PASSWORD/i,
+  /^password$/i,
+  /^password123$/i,
+  /^Password123!?$/i,
+  /^admin$/i,
+  /^admin123$/i,
+  /^warehouse$/i,
+  /^warehouse123$/i,
+  /^demo$/i,
+  /^demo123$/i,
+  /^changeme$/i,
+  /^USE_A_STRONG_PASSWORD$/i,
+  /^your-/i,
+  /placeholder/i,
+  /<Founder chooses strong password>/i,
+] as const
+
+export const CONTROLLED_DEMO_REQUIRED_ENV = [
+  'DATABASE_URL',
+  'DIRECT_URL',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'NEXT_PUBLIC_APP_URL',
+  'ONEDAYOS_DEMO_MODE',
+  'ONEDAYOS_PUBLIC_REGISTRATION_ENABLED',
+  'ONEDAYOS_SANDBOX_DB_APPROVED',
+  'ONEDAYOS_DEMO_ADMIN_EMAIL',
+  'ONEDAYOS_DEMO_ADMIN_PASSWORD',
+  'ONEDAYOS_DEMO_ORG_NAME',
+  'ONEDAYOS_DEMO_ORG_SLUG',
+  'ONEDAYOS_DEMO_WAREHOUSE_EMAIL',
+  'ONEDAYOS_DEMO_WAREHOUSE_PASSWORD',
+  'ONEDAYOS_DEMO_WAREHOUSE_NAME',
+] as const
+
+export const DEMO_RESET_REQUIRED_ENV = [
+  ...CONTROLLED_DEMO_REQUIRED_ENV,
+  'ONEDAYOS_DEMO_RESET_APPROVED',
+] as const
+
+export const WAREHOUSE_OPERATOR_PERMISSION_PROFILE = [
+  INVENTORY_PERMISSIONS.DASHBOARD_READ,
+  INVENTORY_PERMISSIONS.PRODUCT_SETTING_READ,
+  INVENTORY_PERMISSIONS.STOCK_LEVEL_READ,
+  INVENTORY_PERMISSIONS.STOCK_MOVEMENT_READ,
+  INVENTORY_PERMISSIONS.STOCK_ADJUSTMENT_READ,
+  INVENTORY_PERMISSIONS.STOCK_ADJUSTMENT_CREATE,
+  PRODUCT_PERMISSIONS.READ,
+  PRODUCT_CATEGORY_PERMISSIONS.READ,
+  SUPPLIER_PERMISSIONS.READ,
+  WAREHOUSE_PERMISSIONS.READ,
+] as const
+
+export const WAREHOUSE_OPERATOR_PERMISSION_KEYS = WAREHOUSE_OPERATOR_PERMISSION_PROFILE.map(permissionKey).sort()
+
+export const CANONICAL_DEMO_CATEGORY = {
+  name: 'Beverages',
+} as const
+
+export const CANONICAL_DEMO_WAREHOUSE = {
+  code: 'MAIN',
+  name: 'Main Warehouse',
+  address: 'Sandbox demo warehouse',
+} as const
+
+export const CANONICAL_DEMO_SUPPLIER = {
+  name: 'Demo Supplier Co.',
+  email: 'supplier@example.test',
+  phone: '+10000000000',
+  address: 'Sandbox supplier address',
+} as const
+
+export const CANONICAL_DEMO_PRODUCTS = [
+  { code: 'WAT-500', name: 'Bottled Water 500ml', unit: 'bottle', quantity: '120', reorderPoint: '50' },
+  { code: 'TEA-1L', name: 'Iced Tea 1L', unit: 'bottle', quantity: '35', reorderPoint: '25' },
+  { code: 'COF-1KG', name: 'Coffee Beans 1kg', unit: 'bag', quantity: '8', reorderPoint: '10' },
+] as const
+
+export function loadDemoEnvFiles(): void {
+  if (existsSync('.env.local')) {
+    loadDotenv({ path: '.env.local', override: false, quiet: true })
+  }
+
+  loadDotenv({ override: false, quiet: true })
+}
+
+export function permissionKey(permission: { module: string; resource: string; action: string }): string {
+  return `${permission.module}.${permission.resource}.${permission.action}`
+}
+
+export function hasPlaceholderValue(value: string | undefined): boolean {
+  if (!value) return true
+  return PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(value))
+}
+
+export function parseBooleanFlag(value: string | undefined, defaultValue: boolean): boolean {
+  if (value === undefined || value === '') return defaultValue
+  if (value === 'true') return true
+  if (value === 'false') return false
+  throw new Error('Boolean demo flags must be true or false.')
+}
+
+export function usesPort1320(value: string | undefined): boolean {
+  return Boolean(value && /:1320\/?$/.test(value))
+}
+
+export function quantityDelta(before: string, after: string): string {
+  return String(Number(after) - Number(before))
+}
+
+export function stockMovementType(before: string, after: string): string {
+  const beforeValue = Number(before)
+  const afterValue = Number(after)
+
+  if (beforeValue === 0 && afterValue > 0) return 'opening_balance'
+  return afterValue > beforeValue ? 'adjustment_in' : 'adjustment_out'
+}

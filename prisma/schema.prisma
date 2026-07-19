@@ -1,0 +1,480 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+model Organization {
+  id        String             @id @default(cuid())
+  name      String
+  slug      String             @unique
+  status    OrganizationStatus @default(ACTIVE)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  subscription      Subscription?
+  modules           OrgModule[]
+  branches          Branch[]
+  departments       Department[]
+  users             User[]
+  roles             Role[]
+  userRoles         UserRole[]
+  permissions       Permission[]
+  settings          Setting[]
+  employees         Employee[]
+  productCategories ProductCategory[]
+  products          Product[]
+  customers         Customer[]
+  suppliers         Supplier[]
+  warehouses        Warehouse[]
+  inventoryProductExtensions InventoryProductExtension[]
+  stockBalances              StockBalance[]
+  stockMovements             StockMovement[]
+  stockAdjustments           StockAdjustment[]
+
+  @@index([status, isActive])
+  @@map("organizations")
+}
+
+model Subscription {
+  id        String             @id @default(cuid())
+  orgId     String             @unique
+  plan      String             @default("foundation")
+  status    SubscriptionStatus @default(TRIAL)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model OrgModule {
+  id         String    @id @default(cuid())
+  orgId      String
+  moduleId   String
+  isEnabled  Boolean   @default(false)
+  enabledAt  DateTime?
+  disabledAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, moduleId])
+  @@index([orgId, isEnabled])
+  @@map("org_modules")
+}
+
+model Branch {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  code      String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  departments Department[]
+  employees   Employee[]
+  warehouses  Warehouse[]
+
+  @@unique([orgId, name])
+  @@unique([orgId, code])
+  @@index([orgId, isActive])
+  @@map("branches")
+}
+
+model Department {
+  id        String    @id @default(cuid())
+  orgId     String
+  branchId  String?
+  name      String
+  code      String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  employees Employee[]
+
+  @@unique([orgId, name])
+  @@unique([orgId, code])
+  @@index([orgId, branchId])
+  @@index([orgId, isActive])
+  @@map("departments")
+}
+
+model User {
+  id        String    @id
+  orgId     String
+  name      String
+  email     String
+  avatarUrl String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  roles    UserRole[]
+  employee Employee?
+  stockMovements   StockMovement[]
+  stockAdjustments StockAdjustment[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+  @@index([orgId, isActive])
+  @@map("users")
+}
+
+model Role {
+  id          String    @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  isSystem    Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  permissions Permission[]
+  userRoles   UserRole[]
+
+  @@unique([orgId, name])
+  @@index([orgId, isActive])
+  @@map("roles")
+}
+
+model UserRole {
+  orgId     String
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  createdBy String?
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, userId, roleId])
+  @@index([orgId, roleId])
+  @@index([orgId, userId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id         String   @id @default(cuid())
+  orgId      String
+  roleId     String
+  module     String
+  resource   String   @default("*")
+  action     String
+  conditions Json?
+  createdAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  role Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, roleId, module, resource, action])
+  @@index([orgId, module, resource, action])
+  @@index([orgId, roleId])
+  @@map("permissions")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  orgId     String
+  key       String
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("settings")
+}
+
+model Employee {
+  id               String    @id @default(cuid())
+  orgId            String
+  userId           String?   @unique
+  employeeNo       String
+  name             String
+  email            String?
+  phone            String?
+  branchId         String?
+  departmentId     String?
+  position         String?
+  employmentType   String?
+  employmentStatus String    @default("active")
+  hiredAt          DateTime?
+  endedAt          DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+  deletedBy        String?
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  branch     Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@unique([orgId, employeeNo])
+  @@unique([id, orgId])
+  @@index([orgId, name])
+  @@index([orgId, branchId])
+  @@index([orgId, departmentId])
+  @@index([orgId, employmentStatus])
+  @@index([orgId, deletedAt])
+  @@map("employees")
+}
+
+model ProductCategory {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  parentId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  parent   ProductCategory?  @relation("ProductCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children ProductCategory[] @relation("ProductCategoryTree")
+  products Product[]
+
+  @@unique([orgId, name])
+  @@unique([id, orgId])
+  @@index([orgId, parentId])
+  @@index([orgId, deletedAt])
+  @@map("product_categories")
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  orgId       String
+  categoryId  String?
+  code        String
+  name        String
+  description String?
+  unit        String    @default("pcs")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  org      Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inventoryExtension InventoryProductExtension?
+  stockBalances      StockBalance[]
+  stockMovements     StockMovement[]
+  stockAdjustments   StockAdjustment[]
+
+  @@unique([orgId, code])
+  @@unique([id, orgId])
+  @@index([orgId, name])
+  @@index([orgId, categoryId])
+  @@index([orgId, isActive])
+  @@index([orgId, deletedAt])
+  @@map("products")
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([id, orgId])
+  @@index([orgId, name])
+  @@index([orgId, email])
+  @@index([orgId, phone])
+  @@index([orgId, deletedAt])
+  @@map("customers")
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  orgId     String
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([id, orgId])
+  @@index([orgId, name])
+  @@index([orgId, email])
+  @@index([orgId, phone])
+  @@index([orgId, deletedAt])
+  @@map("suppliers")
+}
+
+model Warehouse {
+  id        String    @id @default(cuid())
+  orgId     String
+  branchId  String?
+  code      String
+  name      String
+  address   String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  branch Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  stockBalances    StockBalance[]
+  stockMovements   StockMovement[]
+  stockAdjustments StockAdjustment[]
+
+  @@unique([orgId, code])
+  @@unique([id, orgId])
+  @@index([orgId, name])
+  @@index([orgId, branchId])
+  @@index([orgId, isActive])
+  @@index([orgId, deletedAt])
+  @@map("warehouses")
+}
+
+model InventoryProductExtension {
+  id             String    @id @default(cuid())
+  orgId          String
+  productId      String
+  reorderPoint   Decimal   @default(0) @db.Decimal(18, 4)
+  isStockTracked Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId, orgId], references: [id, orgId])
+
+  @@unique([orgId, productId])
+  @@unique([productId, orgId])
+  @@index([orgId, isStockTracked])
+  @@index([orgId, deletedAt])
+  @@map("inventory_product_extensions")
+}
+
+model StockBalance {
+  id          String   @id @default(cuid())
+  orgId       String
+  productId   String
+  warehouseId String
+  quantity    Decimal  @default(0) @db.Decimal(18, 4)
+  updatedAt   DateTime @updatedAt
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId, orgId], references: [id, orgId])
+  warehouse Warehouse    @relation(fields: [warehouseId, orgId], references: [id, orgId])
+
+  @@unique([orgId, productId, warehouseId])
+  @@index([orgId, warehouseId])
+  @@index([orgId, productId])
+  @@map("stock_balances")
+}
+
+model StockMovement {
+  id                String   @id @default(cuid())
+  orgId             String
+  productId         String
+  warehouseId       String
+  type              String
+  quantityDelta     Decimal  @db.Decimal(18, 4)
+  resultingQuantity Decimal? @db.Decimal(18, 4)
+  sourceType        String?
+  sourceId          String?
+  reason            String?
+  occurredAt        DateTime @default(now())
+  createdBy         String
+  createdAt         DateTime @default(now())
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId, orgId], references: [id, orgId])
+  warehouse Warehouse    @relation(fields: [warehouseId, orgId], references: [id, orgId])
+  actor     User         @relation(fields: [createdBy], references: [id])
+
+  @@index([orgId, productId, occurredAt])
+  @@index([orgId, warehouseId, occurredAt])
+  @@index([orgId, sourceType, sourceId])
+  @@map("stock_movements")
+}
+
+model StockAdjustment {
+  id             String    @id @default(cuid())
+  orgId          String
+  productId      String
+  warehouseId    String
+  quantityBefore Decimal   @db.Decimal(18, 4)
+  quantityAfter  Decimal   @db.Decimal(18, 4)
+  quantityDelta  Decimal   @db.Decimal(18, 4)
+  reason         String
+  notes          String?
+  status         String    @default("posted")
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId, orgId], references: [id, orgId])
+  warehouse Warehouse    @relation(fields: [warehouseId, orgId], references: [id, orgId])
+  actor     User         @relation(fields: [createdBy], references: [id])
+
+  @@index([orgId, productId, createdAt])
+  @@index([orgId, warehouseId, createdAt])
+  @@index([orgId, createdBy])
+  @@index([orgId, deletedAt])
+  @@map("stock_adjustments")
+}
