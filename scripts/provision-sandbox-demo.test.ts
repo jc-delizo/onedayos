@@ -48,4 +48,15 @@ describe('sandbox demo provisioning source contract', () => {
     expect(source).toContain('warehouseOrgAdminPermissionCount')
     expect(source).toContain('warehouseWildcardPermissionCount')
   })
+
+  it('provisions idempotent persisted canonical activity rather than chart-only data', () => {
+    expect(source).toContain('buildCanonicalDemoActivity(new Date())')
+    expect(source).toContain('for (const productInput of CANONICAL_DEMO_PRODUCTS)')
+    expect(source).toContain('for (const activity of canonicalActivity[productInput.code])')
+    expect(source).toContain('tx.stockAdjustment.create')
+    expect(source).toContain('tx.stockMovement.create')
+    expect(source).toContain('occurredAt: activity.occurredAt')
+    expect(source).toContain('if (!existingBalance)')
+    expect(source).not.toContain('const demoProducts = [')
+  })
 })

@@ -3,6 +3,7 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { Surface } from '@/components/ui/surface'
 import type { AppPageProps } from './app-page'
 import { AppPage } from './app-page'
+import { ProcessFlowDiagram } from './process-flow-diagram'
 
 type ProcessFlowPageProps = Omit<AppPageProps, 'title' | 'description' | 'children' | 'primaryAction' | 'secondaryActions'> & {
   definition: ProcessFlowDefinition
@@ -37,7 +38,12 @@ function StepCard({ step, index }: { step: ProcessFlowStep; index: number }) {
             {number}
           </span>
           <div className="min-w-0 space-y-1">
-            <h3 className="text-base font-semibold text-[var(--color-foreground)]">{step.title}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-[var(--color-foreground)]">{step.title}</h3>
+              <StatusBadge variant={step.status === 'planned' ? 'neutral' : 'success'}>
+                {step.status === 'planned' ? 'Planned' : 'Current'}
+              </StatusBadge>
+            </div>
             <p className="text-sm leading-6 text-[var(--color-muted)]">{step.description}</p>
           </div>
         </div>
@@ -73,17 +79,41 @@ function OwnershipPanel({ title, items, variant }: { title: string; items: reado
 
 export function ProcessFlowPage({ definition, ...appPageProps }: ProcessFlowPageProps) {
   return (
-    <AppPage {...appPageProps} title={definition.title} description={definition.description} contentWidth="wide">
+    <AppPage {...appPageProps} title={definition.title} description={definition.description} headerMode="explanatory" contentWidth="wide">
+      <ProcessFlowDiagram definition={definition} />
+
       <section aria-labelledby="process-flow-steps" className="space-y-4">
         <h2 id="process-flow-steps" className="text-base font-semibold text-[var(--color-foreground)]">
-          Process steps
+          Current step details
         </h2>
-        <ol className="grid gap-4 lg:grid-cols-2">
+        <ol className="grid gap-4 lg:grid-cols-2" data-semantic-process-fallback>
           {definition.steps.map((step, index) => (
             <StepCard key={step.id} step={step} index={index} />
           ))}
         </ol>
       </section>
+
+      {definition.plannedSteps?.length ? (
+        <section
+          aria-labelledby="planned-workflows-heading"
+          className="space-y-4 rounded-[var(--radius-md)] border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface-muted)] p-4"
+          data-planned-workflows
+        >
+          <div className="space-y-1">
+            <h2 id="planned-workflows-heading" className="text-base font-semibold text-[var(--color-foreground)]">
+              Planned Inventory V2 workflows
+            </h2>
+            <p className="text-sm font-medium text-[var(--color-warning)]">
+              {definition.plannedLabel ?? 'Planned — not implemented'}
+            </p>
+          </div>
+          <ul className="grid gap-3 md:grid-cols-3">
+            {definition.plannedSteps.map((step, index) => (
+              <StepCard key={step.id} step={step} index={index} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-label="Ownership boundaries" className="grid gap-4 lg:grid-cols-2">
         <OwnershipPanel title="What this module owns" items={definition.owns} variant="brand" />

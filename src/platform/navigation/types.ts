@@ -15,13 +15,14 @@ export type TenantNavSection = {
 }
 
 export type TenantAppSwitcherItem = {
-  id: 'inventory' | 'organization'
+  id: 'inventory' | 'shared-records' | 'organization'
   label: string
   href: string
   description: string
+  icon: 'Package' | 'Database' | 'Building2'
 }
 
-export type TenantNavContext = 'workspace' | 'inventory' | 'organization' | 'records'
+export type TenantNavContext = 'workspace' | 'inventory' | 'shared-records' | 'organization'
 
 export type TenantAppShellModel = {
   org: {

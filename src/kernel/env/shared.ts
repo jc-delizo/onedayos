@@ -11,6 +11,7 @@ export function isPlaceholderValue(value: string | undefined): boolean {
   return [
     'your-project',
     'your-supabase-anon-key',
+    'your-supabase-secret-key',
     'your-supabase-service-role-key',
     'postgres:postgres@127.0.0.1:54322',
   ].some((placeholder) => value.includes(placeholder))

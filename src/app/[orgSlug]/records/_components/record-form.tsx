@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FormMessage, Label } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { useRouteModalLifecycle } from '@/components/onedayos'
 
 export type RecordFormField = {
   name: string
@@ -33,6 +34,7 @@ export function RecordForm({
   submitLabel: string
 }) {
   const router = useRouter()
+  const modal = useRouteModalLifecycle()
   const [message, setMessage] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -72,12 +74,16 @@ export function RecordForm({
       return
     }
 
-    router.push(returnHref as never)
-    router.refresh()
+    if (modal) {
+      modal.completeMutation()
+    } else {
+      router.push(returnHref as never)
+      router.refresh()
+    }
   }
 
   return (
-    <form className="max-w-2xl space-y-4" onSubmit={submit}>
+    <form className="max-w-2xl space-y-4" onSubmit={submit} onChange={() => modal?.markDirty()}>
       {fields.map((field) => {
         const value = initialValues[field.name]
 
@@ -133,7 +139,7 @@ export function RecordForm({
         <Button disabled={pending} type="submit" variant="primary">
           {pending ? 'Saving...' : submitLabel}
         </Button>
-        <Button disabled={pending} type="button" variant="secondary" onClick={() => router.push(returnHref as never)}>
+        <Button disabled={pending} type="button" variant="secondary" onClick={() => modal ? modal.requestClose() : router.push(returnHref as never)}>
           Cancel
         </Button>
       </div>

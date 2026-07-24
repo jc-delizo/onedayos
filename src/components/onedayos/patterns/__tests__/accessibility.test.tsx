@@ -73,13 +73,22 @@ const shellModel: TenantAppShellModel = {
       id: 'inventory',
       label: 'Inventory',
       href: '/acme/inventory',
-      description: 'Stock levels, product settings, movements, and manual adjustments.',
+      description: 'Stock levels, movements, tracking settings, and manual adjustments.',
+      icon: 'Package',
+    },
+    {
+      id: 'shared-records',
+      label: 'Shared Records',
+      href: '/acme/records',
+      description: 'Organization-wide business identities.',
+      icon: 'Database',
     },
     {
       id: 'organization',
       label: 'Organization',
       href: '/acme/organization',
       description: 'People, branches, departments, and organization-wide settings.',
+      icon: 'Building2',
     },
   ],
   sidebars: {
@@ -96,7 +105,7 @@ const shellModel: TenantAppShellModel = {
       },
     ],
     organization: [],
-    records: [],
+    'shared-records': [],
   },
 }
 
@@ -268,13 +277,13 @@ describe('OneDayOS shared page-pattern accessibility', () => {
     await expectNoA11yViolations(settings.container)
   }, A11Y_TIMEOUT)
 
-  it('Shared Records surfaces remain accessible without treating Records as an app', async () => {
+  it('Shared Records built-in app surfaces remain accessible and ownership-explicit', async () => {
     const recordsLanding = render(
       <AppPage
         breadcrumb="Shared Records"
         title="Shared Records"
-        description="Shared Records are organization-wide business identities used by enabled apps."
-        contextualHelp="Records are not an app. Use the app switcher to return to Inventory or Organization."
+        headerMode="compact"
+        contextualHelp="Shared Records are organization-wide business identities reused by enabled apps. People remains under Organization."
       >
         <section aria-label="Shared record areas">
           <h2>Products</h2>
@@ -283,12 +292,12 @@ describe('OneDayOS shared page-pattern accessibility', () => {
       </AppPage>,
     )
 
-    expect(screen.getByText('Records are not an app. Use the app switcher to return to Inventory or Organization.')).toBeInTheDocument()
+    expect(screen.getByText(/Shared Records are organization-wide business identities reused/)).toBeInTheDocument()
     await expectNoA11yViolations(recordsLanding.container)
     recordsLanding.unmount()
 
     const products = render(
-      <ListPage title="Products" description="Shared product/SKU identity used by Inventory and future modules.">
+      <ListPage headerMode="compact" title="Products" contextualHelp="Shared Product identity used by Inventory and other apps.">
         <table>
           <caption className="sr-only">Shared Products</caption>
           <thead>
@@ -364,7 +373,7 @@ describe('OneDayOS shared page-pattern accessibility', () => {
     const { container } = render(<ProcessFlowPage breadcrumb="Inventory / Process Flow" definition={flow} />)
 
     expect(container.querySelector('ol')).not.toBeNull()
-    expect(screen.getByRole('heading', { name: 'Process steps' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Current step details' })).toBeInTheDocument()
     expect(screen.getAllByText('Inputs').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Outputs').length).toBeGreaterThan(0)
     expect(screen.getByRole('note')).toHaveTextContent('Negative resulting stock is prevented.')

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
-import type { ApiError, ApiResponse } from '@/sdk'
+import type { ApiError, ApiMeta, ApiResponse } from '@/sdk'
 
-export function apiSuccess<T>(data: T, init: ResponseInit = {}): NextResponse<ApiResponse<T>> {
+export function apiSuccess<T>(data: T, init: ResponseInit = {}, meta?: ApiMeta): NextResponse<ApiResponse<T>> {
   return NextResponse.json(
     {
       data,
       error: null,
+      ...(meta ? { meta } : {}),
     },
     init,
   )

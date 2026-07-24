@@ -4,6 +4,7 @@ import { toInventoryApiFailure } from '@/modules/inventory/api'
 import { INVENTORY_PERMISSIONS } from '@/modules/inventory/permissions'
 import { productSettingListQuerySchema, upsertProductSettingSchema } from '@/modules/inventory/schema'
 import { InventoryService } from '@/modules/inventory/service'
+import { apiSuccess } from '@/kernel/api/response'
 
 type RouteContext = {
   params: Promise<{ orgSlug: string }>
@@ -15,8 +16,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const ctx = await sdk.auth.requireApiModuleContext(handledRequest, orgSlug, 'inventory', requestId)
     await sdk.permissions.require(ctx, INVENTORY_PERMISSIONS.PRODUCT_SETTING_READ)
     const query = sdk.api.parseSearchParams(handledRequest.nextUrl.searchParams, productSettingListQuerySchema)
-    const data = await InventoryService.listProductSettings(ctx, query)
-    return sdk.api.ok(data)
+    const result = await InventoryService.listProductSettingsPage(ctx, query)
+    return apiSuccess(result.rows, {}, result.meta)
   })(request)
 }
 

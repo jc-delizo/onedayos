@@ -17,7 +17,7 @@ export function DashboardPage({
 }: DashboardPageProps) {
   return (
     <AppPage {...appPageProps}>
-      {metrics ? <section aria-label="Dashboard metrics" className="grid gap-3 md:grid-cols-3">{metrics}</section> : null}
+      {metrics ? <section aria-label="Dashboard metrics" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics}</section> : null}
       <section aria-label="Dashboard content">{primaryContent}</section>
       {secondaryContent ? <section aria-label="Recent activity">{secondaryContent}</section> : null}
     </AppPage>

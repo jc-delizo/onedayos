@@ -46,6 +46,16 @@ export const EmployeeService = createBusinessObjectService<CreateEmployeeInput, 
   eventIdField: 'employeeId',
   searchFields: ['employeeNo', 'name', 'email', 'phone', 'position'],
   orderBy: { name: 'asc' },
+  listArgs: {
+    include: {
+      branch: {
+        select: { name: true },
+      },
+      department: {
+        select: { name: true },
+      },
+    },
+  },
   async createData(input, ctx, prisma) {
     await validateEmployeeReferences(ctx, prisma, input)
 

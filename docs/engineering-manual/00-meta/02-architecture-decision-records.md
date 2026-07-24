@@ -19,6 +19,24 @@
 
 ---
 
+# Inventory Demo V2 ADR Registry Amendment — 2026-07
+
+The Founder accepted the following ADR files. Their standalone files are authoritative and supersede conflicting entries in the historical draft backlog later in this document.
+
+| ADR | Status | Implementation Timing |
+| --- | --- | --- |
+| `ADR-0014-compact-operational-page-header.md` | Accepted | V2-1 |
+| `ADR-0015-shared-records-built-in-app-context.md` | Accepted | V2-1 |
+| `ADR-0016-data-table-v2-and-modal-interactions.md` | Accepted | V2-2 and V2-3 |
+| `ADR-0017-bounded-table-export.md` | Accepted | V2-5 |
+| `ADR-0018-tenant-safe-caching-strategy.md` | Accepted | V2-7 after stabilization |
+| `ADR-0019-curated-accent-presets.md` | Accepted | V2-8 |
+| `ADR-0020-inventory-v2-operational-workflows.md` | Accepted | V2-6 |
+
+Only V2-1 is the next authorized package, subject to explicit Founder approval of its implementation handoff. Acceptance of later ADRs freezes direction but does not authorize early implementation.
+
+---
+
 # 1. Purpose
 
 This document defines how OneDayOS records important architecture decisions.

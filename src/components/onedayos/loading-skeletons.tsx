@@ -90,20 +90,37 @@ export function DashboardPageSkeleton() {
   return (
     <div role="status" aria-label="Loading inventory overview" className="space-y-5">
       <HeaderSkeleton />
-      <div className="grid gap-3 md:grid-cols-3">
-        <Surface className="space-y-3 p-4">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-8 w-16" />
-        </Surface>
-        <Surface className="space-y-3 p-4">
-          <Skeleton className="h-3 w-32" />
-          <Skeleton className="h-8 w-16" />
-        </Surface>
-        <Surface className="space-y-3 p-4">
-          <Skeleton className="h-3 w-36" />
-          <Skeleton className="h-8 w-16" />
-        </Surface>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Surface key={index} className="space-y-3 p-4">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-3 w-full" />
+          </Surface>
+        ))}
       </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Surface key={index} className="space-y-4 p-4">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-3/4" />
+            <div className="flex h-52 items-end gap-3">
+              {['h-28', 'h-40', 'h-20', 'h-36', 'h-24'].map((heightClass, barIndex) => (
+                <Skeleton key={`${heightClass}-${barIndex}`} className={`flex-1 ${heightClass}`} />
+              ))}
+            </div>
+          </Surface>
+        ))}
+      </div>
+      <Surface className="space-y-4 p-4">
+        <Skeleton className="h-5 w-52" />
+        <Skeleton className="h-3 w-2/3" />
+        <div className="grid h-44 grid-cols-6 items-end gap-3">
+          {['h-28', 'h-16', 'h-36', 'h-20', 'h-32', 'h-12'].map((heightClass, index) => (
+            <Skeleton key={`${heightClass}-${index}`} className={heightClass} />
+          ))}
+        </div>
+      </Surface>
       <Surface className="p-4">
         <Skeleton className="mb-4 h-5 w-40" />
         <TableSkeleton rows={4} columns={5} />
@@ -117,12 +134,22 @@ export function ProcessFlowPageSkeleton() {
     <div role="status" aria-label="Loading inventory process flow" className="space-y-5">
       <HeaderSkeleton action={false} />
       <Surface className="p-4">
-        <div className="grid gap-3 md:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="space-y-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
-              <Skeleton className="size-7 rounded-full" />
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-full" />
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="contents">
+              <div className="flex-1 space-y-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+              {index < 3 ? <Skeleton className="mx-auto h-7 w-7 rounded-full" /> : null}
+            </div>
+          ))}
+        </div>
+        <div className="mx-auto my-3 h-8 w-px bg-[var(--color-border-strong)]" />
+        <div className="grid gap-3 lg:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="space-y-3 rounded-[var(--radius-sm)] border border-dashed border-[var(--color-border-strong)] p-3">
+              <Skeleton className="h-4 w-32" />
               <Skeleton className="h-3 w-4/5" />
             </div>
           ))}

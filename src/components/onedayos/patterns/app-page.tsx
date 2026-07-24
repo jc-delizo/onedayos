@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { PageHeader } from '@/components/onedayos/page-header'
+import { PageHeader, type PageHeaderMode } from '@/components/onedayos/page-header'
 import { cn } from '@/lib/cn'
 
 export type PageBreadcrumbItem = {
@@ -17,6 +17,7 @@ export type AppPageProps = {
   primaryAction?: ReactNode
   secondaryActions?: ReactNode
   contextualHelp?: ReactNode
+  headerMode?: PageHeaderMode
   contentWidth?: AppPageContentWidth
   className?: string
   children: ReactNode
@@ -34,7 +35,11 @@ function isBreadcrumbItems(breadcrumb: AppPageProps['breadcrumb']): breadcrumb i
 
 function Breadcrumb({ breadcrumb }: { breadcrumb: NonNullable<AppPageProps['breadcrumb']> }) {
   if (!isBreadcrumbItems(breadcrumb)) {
-    return <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-brand)]">{breadcrumb}</div>
+    return (
+      <nav aria-label="Breadcrumb" className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-brand)]">
+        <span aria-current="page">{breadcrumb}</span>
+      </nav>
+    )
   }
 
   return (
@@ -87,6 +92,7 @@ export function AppPage({
   primaryAction,
   secondaryActions,
   contextualHelp,
+  headerMode = 'explanatory',
   contentWidth = 'default',
   className,
   children,
@@ -97,8 +103,16 @@ export function AppPage({
 
   return (
     <div className={cn('mx-auto w-full space-y-6', widthClasses[contentWidth], className)}>
-      {breadcrumb ? <Breadcrumb breadcrumb={breadcrumb} /> : null}
-      <PageHeader title={title} description={description} actions={actions} className={breadcrumb ? 'pt-0' : undefined} />
+      <div className={headerMode === 'compact' ? 'space-y-1.5' : 'space-y-3'}>
+        {breadcrumb ? <Breadcrumb breadcrumb={breadcrumb} /> : null}
+        <PageHeader
+          title={title}
+          description={description}
+          actions={actions}
+          mode={headerMode}
+          className={breadcrumb ? 'pt-0' : undefined}
+        />
+      </div>
       {contextualHelp ? (
         <aside className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-4 py-3 text-sm leading-6 text-[var(--color-muted)]">
           {contextualHelp}

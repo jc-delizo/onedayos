@@ -154,17 +154,25 @@ export function useAppearance() { return { preference: 'system', resolvedAppeara
     root,
     'src/components/onedayos/app-shell.tsx',
     `import { Grid3X3 } from 'lucide-react'
+export function getCurrentNavContext(pathname: string) { if (pathname.includes('/records')) return 'shared-records'; return 'workspace' }
 export function AppShell() {
   return <aside><button aria-label="Switch apps"><Grid3X3 />Inventory</button><button aria-label="Open profile menu">Profile</button><p>Appearance</p><button>Light</button><button>Dark</button><button>System</button></aside>
 }
 `,
   )
+  write(root, 'src/components/onedayos/page-header.tsx', `export type PageHeaderMode = 'compact' | 'explanatory'\nexport function PageHeader() { return <h1>Title</h1> }`)
+  write(root, 'src/components/onedayos/patterns/process-flow-page.tsx', `export function ProcessFlowPage() { return <AppPage headerMode="explanatory" title="Process Flow" /> }`)
   write(root, 'src/platform/organization/UX-CONFORMANCE.md', 'Implementation Conformance Complete\nRole-Based UX Validation Preparation Complete\nIndependent Org Admin Validation Pending\n')
-  write(root, 'src/business-objects/UX-CONFORMANCE.md', 'Implementation Conformance Complete\nRole-Based UX Validation Preparation Complete\nRepresentative-User Validation Pending\nRecords are not an app\n')
+  write(root, 'src/business-objects/UX-CONFORMANCE.md', 'Implementation Conformance Complete\nRole-Based UX Validation Preparation Complete\nRepresentative-User Validation Pending\nShared Records built-in app\n')
   write(
     root,
     'docs/engineering-manual/03-design-system/IMPLEMENTATION-NOTE-organization-records-ux-retrofit.md',
     'Organization remains a built-in Org Admin app. Records are not an app. Automated checks are structural regression gates only.',
+  )
+  write(
+    root,
+    'docs/engineering-manual/16-client-delivery/IMPLEMENTATION-NOTE-v2-1-compact-header-shared-records-ia.md',
+    'V2-1 complete. V2-2 remains blocked. website asset production remains paused.',
   )
   write(
     root,
@@ -321,10 +329,11 @@ const staleWarehousePermissionIds = []
     root,
     'src/app/[orgSlug]/records/page.tsx',
     `import { AppPage } from '@/components/onedayos'
+const sdk = { permissions: { can: () => true } }
 const recordAreas = [{ id: 'products' }, { id: 'employees' }]
 export default function Page() {
-  const landingAreas = recordAreas.filter((area) => area.id !== 'employees')
-  return <AppPage title="Shared Records" description="Shared Records are organization-wide business identities used by enabled apps.">Records are not an app. {landingAreas.length}</AppPage>
+  const landingAreas = recordAreas.filter((area) => area.id === 'employees' ? false : sdk.permissions.can())
+  return <AppPage title="Shared Records">Shared Records are organization-wide business identities reused by enabled apps. {landingAreas.length}</AppPage>
 }
 `,
   )
@@ -364,7 +373,7 @@ export function RecordsFormPage() {
     root,
     'src/app/[orgSlug]/apps/app-launcher.tsx',
     `export function AppLauncher() {
-  return <p>Open an available OneDayOS app. Records are not an app.</p>
+  return <p>Open Shared Records.</p>
 }
 `,
   )
@@ -374,20 +383,25 @@ export function RecordsFormPage() {
     `export function buildTenantAppShellModel(ctx: { enabledModules: string[] }) {
   const inventoryEnabled = ctx.enabledModules.includes('inventory')
   const relatedInventoryRecords = [
-    { id: 'products', label: 'Products' },
-    { id: 'product-categories', label: 'Categories' },
-    { id: 'suppliers', label: 'Suppliers' },
-    { id: 'warehouses', label: 'Warehouses' },
+    { id: 'products', label: 'Products', href: '/acme/inventory/related/products' },
+    { id: 'product-categories', label: 'Categories', href: '/acme/inventory/related/product-categories' },
+    { id: 'customers', label: 'Customers', href: '/acme/inventory/related/customers' },
+    { id: 'suppliers', label: 'Suppliers', href: '/acme/inventory/related/suppliers' },
+    { id: 'warehouses', label: 'Warehouses', href: '/acme/inventory/related/warehouses' },
   ].filter(Boolean)
+  const allSharedRecords = [{ id: 'products' }]
   const organizationItems = [{ id: 'organization-people', label: 'People' }]
   const apps = [
     ...(inventoryEnabled ? [{ id: 'inventory' as const, label: 'Inventory' }] : []),
+    ...(allSharedRecords.length > 0 ? [{ id: 'shared-records' as const, label: 'Shared Records' }] : []),
     { id: 'organization' as const, label: 'Organization' },
   ]
   return { relatedInventoryRecords, organizationItems, apps }
 }
 `,
   )
+  write(root, 'src/modules/inventory/navigation.ts', `export const inventoryNavigation = [{ key: 'inventory.stock-levels' }]`)
+  write(root, 'src/app/[orgSlug]/inventory/product-settings/page.tsx', `export default function Page() { return <h1>Inventory Tracking Settings</h1> }`)
 
   return root
 }
@@ -591,9 +605,9 @@ describe('checkUx', () => {
     expectFinding(checkUx(root), 'records-form-pattern', 'src/app/[orgSlug]/records/_components/records-form-page.tsx')
   })
 
-  it('fails when Records is shown as an app or Inventory related Records leak People or Customers', () => {
+  it('fails when Shared Records app identity is missing or Inventory related Records leak People', () => {
     const root = createFixture()
-    write(root, 'src/app/[orgSlug]/apps/app-launcher.tsx', `export function AppLauncher() { return <a>Open Records</a> }`)
+    write(root, 'src/app/[orgSlug]/apps/app-launcher.tsx', `export function AppLauncher() { return <a>Open Inventory</a> }`)
     write(
       root,
       'src/platform/navigation/tenant-navigation.ts',
@@ -603,15 +617,16 @@ describe('checkUx', () => {
     { label: 'Customers' },
     { label: 'People' },
   ].filter(Boolean)
-  const apps = [{ id: 'records' as const, label: 'Records', description: 'Shared Records' }]
+  const apps = [{ id: 'records' as const, label: 'Records' }]
   return { relatedInventoryRecords, apps }
 }
 `,
     )
 
-    expectFinding(checkUx(root), 'records-shown-as-app', 'src/app/[orgSlug]/apps/app-launcher.tsx')
-    expectFinding(checkUx(root), 'records-shown-as-app', 'src/platform/navigation/tenant-navigation.ts')
+    expectFinding(checkUx(root), 'missing-shared-records-app', 'src/app/[orgSlug]/apps/app-launcher.tsx')
+    expectFinding(checkUx(root), 'invalid-shared-records-app', 'src/platform/navigation/tenant-navigation.ts')
     expectFinding(checkUx(root), 'inventory-sidebar-platform-record-leak', 'src/platform/navigation/tenant-navigation.ts')
+    expectFinding(checkUx(root), 'inventory-related-record-context-loss', 'src/platform/navigation/tenant-navigation.ts')
   })
 
   it('fails when role-based UX validation preparation artifacts are missing', () => {
@@ -666,6 +681,48 @@ const staleWarehousePermissionIds = []
 
     expectFinding(checkUx(root), 'incomplete-founder-controlled-review-record', 'docs/demo/reviews/FOUNDER-WAREHOUSE-PROXY-UX-REVIEW.md')
     expectFinding(checkUx(root), 'premature-controlled-demo-validation-claim', 'docs/demo/reviews/FOUNDER-WAREHOUSE-PROXY-UX-REVIEW.md')
+  })
+
+  it('fails Prompt 37 regressions for candidate caps and production client-mode growth tables', () => {
+    const root = createFixture()
+    write(root, 'package.json', JSON.stringify({ dependencies: { '@tanstack/react-table': '8.21.3' } }))
+    write(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_37_V2_2_ACCEPTANCE_SCALE_HARDENING.md', 'Prompt 37')
+    write(root, 'src/components/onedayos/data-table/data-table-v2.tsx', `import '@tanstack/react-table'\nexport const contract = 'manualPagination onKeyDown localStorage data-data-table-v2'`)
+    write(root, 'src/app/[orgSlug]/inventory/_components/inventory-data-tables.tsx', `export function Table() { return <DataTableV2 mode="server">Adjust Stock productId= warehouseId=</DataTableV2> }`)
+    write(root, 'src/app/[orgSlug]/records/_components/records-data-table.tsx', `export function Table() { return <DataTableV2 mode="client" /> }`)
+    write(root, 'src/app/[orgSlug]/organization/_components/organization-data-tables.tsx', `export function Table() { return <DataTableV2 mode="server" /> }`)
+    write(root, 'src/modules/inventory/service.ts', 'const candidateTotal = 100\nconst rows = allRows.slice(0, 25)')
+    write(root, 'src/modules/inventory/schema.ts', 'export const query = {}')
+    write(root, 'src/app/[orgSlug]/records/_components/shared-record-pages.tsx', 'ProductService.listPage(ctx, query)')
+    write(root, 'src/app/[orgSlug]/organization/people/page.tsx', 'OrganizationTableService.listPeople(ctx, query)')
+    write(root, 'src/app/[orgSlug]/organization/branches-departments/page.tsx', 'OrganizationTableService.listStructure(ctx, query)')
+    for (const path of [
+      'src/app/api/orgs/[orgSlug]/inventory/stock-levels/route.ts',
+      'src/app/api/orgs/[orgSlug]/inventory/stock-movements/route.ts',
+      'src/app/api/orgs/[orgSlug]/inventory/stock-adjustments/route.ts',
+    ]) {
+      write(root, path, 'return apiSuccess(result.rows, {}, result.meta)')
+    }
+
+    expectFinding(checkUx(root), 'growth-table-client-mode', 'src/app/[orgSlug]/records/_components/records-data-table.tsx')
+    expectFinding(checkUx(root), 'stock-status-candidate-cap', 'src/modules/inventory/service.ts')
+    expectFinding(checkUx(root), 'missing-v2-2-acceptance-report', 'docs/engineering-manual/00-meta/V2-2-ACCEPTANCE-REPORT.md')
+  })
+
+  it('allows the exact Radix Dialog dependency after Prompt 38 authorization', () => {
+    const root = createFixture()
+    write(
+      root,
+      'package.json',
+      JSON.stringify({ dependencies: { '@radix-ui/react-dialog': '1.1.21', '@tanstack/react-table': '8.21.3' } }),
+    )
+    write(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_38_V2_3_URL_ADDRESSABLE_MODALS.md', 'Founder-approved V2-3')
+    write(root, 'src/components/onedayos/data-table/data-table-v2.tsx', `import '@tanstack/react-table'\nexport const contract = 'manualPagination onKeyDown localStorage data-data-table-v2'`)
+    write(root, 'src/app/[orgSlug]/inventory/_components/inventory-data-tables.tsx', `export function Table() { return <DataTableV2 mode="server">Adjust Stock productId= warehouseId=</DataTableV2> }`)
+    write(root, 'src/app/[orgSlug]/records/_components/records-data-table.tsx', `export function Table() { return <DataTableV2 mode="server" /> }`)
+    write(root, 'src/app/[orgSlug]/organization/_components/organization-data-tables.tsx', `export function Table() { return <DataTableV2 mode="server" /> }`)
+
+    expect(checkUx(root).filter((finding) => finding.rule === 'premature-v2-dependency')).toEqual([])
   })
 
   it('fails unsafe controlled demo reset scope', () => {

@@ -19,4 +19,9 @@ export type {
   ModuleSettingDefinition,
 } from './module-types'
 export type { AuthenticatedUser, PermissionGrant, PermissionRequirement, PlatformContext, TenantDb } from './types'
-export type { ModuleUxContract, ProcessFlowDefinition, ProcessFlowStep } from './ux-types'
+export type {
+  ModuleUxContract,
+  ProcessFlowConnection,
+  ProcessFlowDefinition,
+  ProcessFlowStep,
+} from './ux-types'

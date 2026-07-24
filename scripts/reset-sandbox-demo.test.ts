@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import {
+  buildCanonicalDemoActivity,
+  CANONICAL_DEMO_PRODUCTS,
+  stockMovementType,
+} from './demo-ops'
 import { validateDemoResetEnv } from './reset-sandbox-demo'
 
 const resetEnv = {
@@ -13,7 +18,7 @@ const resetEnv = {
   DIRECT_URL: 'postgresql://sandbox-direct.example/onedayos',
   NEXT_PUBLIC_SUPABASE_URL: 'https://sandbox.supabase.co',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  SUPABASE_SECRET_KEY: 'sb_secret_sandbox-test-key',
   NEXT_PUBLIC_APP_URL: 'http://localhost:1320',
   ONEDAYOS_DEMO_ADMIN_EMAIL: 'demo@example.test',
   ONEDAYOS_DEMO_ADMIN_PASSWORD: 'secure-demo-secret',
@@ -61,6 +66,8 @@ describe('sandbox demo reset safety contract', () => {
     expect(source).toContain('await tx.stockAdjustment.deleteMany({ where: { orgId: org.id } })')
     expect(source).toContain('await tx.stockBalance.deleteMany({ where: { orgId: org.id } })')
     expect(source).toContain('await tx.inventoryProductExtension.deleteMany({ where: { orgId: org.id } })')
+    expect(source).toContain('code: { notIn: CANONICAL_DEMO_PRODUCTS.map')
+    expect(source).toContain('code: { not: CANONICAL_DEMO_WAREHOUSE.code }')
     expect(source).not.toContain('tx.organization.delete')
     expect(source).not.toContain('tx.user.delete')
     expect(source).not.toContain('tx.role.delete')
@@ -77,6 +84,40 @@ describe('sandbox demo reset safety contract', () => {
     expect(source).toContain('tx.stockAdjustment.create')
     expect(source).toContain('tx.stockMovement.create')
     expect(source).toContain('tx.stockBalance.create')
-    expect(source).toContain("spawn('npm', ['run', 'demo:provision']")
+    expect(source).not.toContain("spawn('npm', ['run', 'demo:provision']")
+    expect(source).toContain('checksFromDemoData(await createLiveDemoDataSnapshot(env))')
+  })
+
+  it('builds deterministic recent canonical activity with exact final balances', () => {
+    const now = new Date('2026-07-24T23:59:59.999Z')
+    const first = buildCanonicalDemoActivity(now)
+    const second = buildCanonicalDemoActivity(now)
+
+    expect(second).toEqual(first)
+    expect(Object.keys(first)).toEqual(CANONICAL_DEMO_PRODUCTS.map((product) => product.code))
+
+    for (const product of CANONICAL_DEMO_PRODUCTS) {
+      const activity = first[product.code]
+      expect(activity).toHaveLength(3)
+      expect(activity[0].quantityBefore).toBe('0')
+      expect(activity.at(-1)?.quantityAfter).toBe(product.quantity)
+      expect(activity.every((step) => step.occurredAt <= now)).toBe(true)
+      expect(activity.every((step) => step.occurredAt >= new Date('2026-06-25T00:00:00.000Z'))).toBe(true)
+      expect(activity.map((step) => stockMovementType(step.quantityBefore, step.quantityAfter))).toEqual([
+        'opening_balance',
+        'adjustment_in',
+        'adjustment_out',
+      ])
+      expect(activity.every((step) => Number(step.quantityBefore) >= 0 && Number(step.quantityAfter) >= 0)).toBe(true)
+    }
+  })
+
+  it('uses the injected reset clock and persists matching Adjustment and Movement dates', () => {
+    expect(source).toContain('options: { now?: Date } = {}')
+    expect(source).toContain('buildCanonicalDemoActivity(options.now ?? new Date())')
+    expect(source).toContain('{ timeout: 20_000 }')
+    expect(source).toContain('createdAt: activity.occurredAt')
+    expect(source).toContain('occurredAt: activity.occurredAt')
+    expect(source).toContain("notes: 'sandbox-demo-canonical-activity'")
   })
 })

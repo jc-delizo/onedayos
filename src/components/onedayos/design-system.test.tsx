@@ -154,7 +154,7 @@ describe('OneDayOS design primitives', () => {
     const { container } = render(<DashboardPageSkeleton />)
 
     expect(screen.getByRole('status', { name: 'Loading inventory overview' })).toBeInTheDocument()
-    expect(container.querySelectorAll('section')).toHaveLength(4)
+    expect(container.querySelectorAll('section')).toHaveLength(8)
   })
 
   it('FormPageSkeleton renders form-field loading rows', () => {

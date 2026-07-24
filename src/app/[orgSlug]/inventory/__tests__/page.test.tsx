@@ -97,19 +97,34 @@ describe('Inventory UI', () => {
       stockLevels: readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-levels/page.tsx'), 'utf8'),
       stockMovements: readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-movements/page.tsx'), 'utf8'),
       stockAdjustments: readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-adjustments/page.tsx'), 'utf8'),
-      newAdjustment: readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-adjustments/new/page.tsx'), 'utf8'),
+      newAdjustment: [
+        readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-adjustments/new/page.tsx'), 'utf8'),
+        readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/_components/inventory-record-presenters.tsx'), 'utf8'),
+      ].join('\n'),
     }
 
     expect(sources.dashboard).toContain('DashboardPage')
     expect(sources.dashboard).toContain('DashboardMetric')
+    expect(sources.dashboard).toContain('StockHealthChart')
+    expect(sources.dashboard).toContain('MovementTrendChart')
+    expect(sources.dashboard).toContain('WarehouseStockChart')
+    expect(sources.dashboard).toContain('Dashboard analytics need a narrower scope')
+    expect(sources.dashboard).toContain('SafePageErrorState')
+    expect(sources.dashboard).not.toContain('error.message')
+    expect(sources.dashboard).toContain('Out of Stock')
+    expect(sources.dashboard).toContain('Recent Movements')
+    expect(sources.dashboard).toContain('Recent Adjustments')
     expect(sources.dashboard).not.toContain('fake metrics')
+    expect(sources.dashboard).not.toMatch(/percentage delta|trend arrow/i)
     expect(sources.productSettings).toContain('ListPage')
     expect(sources.stockLevels).toContain('ListPage')
     expect(sources.stockMovements).toContain('ListPage')
     expect(sources.stockAdjustments).toContain('ListPage')
+    expect(sources.newAdjustment).toContain('StockAdjustmentCreatePresenter')
     expect(sources.newAdjustment).toContain('FormPage')
 
     for (const source of Object.values(sources)) {
+      expect(source).toContain('headerMode="compact"')
       expect(source).not.toContain('Shared Products')
       expect(source).not.toContain('Inventory section')
       expect(source).not.toContain('name="orgId"')
@@ -124,12 +139,14 @@ describe('Inventory UI', () => {
       readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-movements/loading.tsx'), 'utf8'),
       readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-adjustments/loading.tsx'), 'utf8'),
       readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/stock-adjustments/new/loading.tsx'), 'utf8'),
+      readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/related/[area]/loading.tsx'), 'utf8'),
     ]
     const errorSource = readFileSync(join(process.cwd(), 'src/app/[orgSlug]/inventory/error.tsx'), 'utf8')
 
     expect(loadingSources[0]).toContain('DashboardPageLoadingState')
     expect(loadingSources.slice(1, 5).every((source) => source.includes('TablePageLoadingState'))).toBe(true)
     expect(loadingSources[5]).toContain('FormPageLoadingState')
+    expect(loadingSources[6]).toContain('PageLoadingState')
     expect(errorSource).toContain('SafePageErrorState')
 
     for (const source of [...loadingSources, errorSource]) {

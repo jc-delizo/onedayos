@@ -72,8 +72,9 @@ describe('inventory schemas', () => {
   it('allowlists query params and rejects client-supplied tenant filters', () => {
     const tenantKey = 'org' + 'Id'
 
-    expect(stockLevelQuerySchema.safeParse({ page: '1', pageSize: '25', lowStockOnly: 'true' }).success).toBe(true)
+    expect(stockLevelQuerySchema.safeParse({ page: '1', pageSize: '25', lowStockOnly: 'true' }).success).toBe(false)
+    expect(stockLevelQuerySchema.safeParse({ page: '1', pageSize: '25', status: 'low_stock' }).success).toBe(false)
     expect(stockLevelQuerySchema.safeParse({ [tenantKey]: 'org_b' }).success).toBe(false)
-    expect(productSettingListQuerySchema.safeParse({ q: 'legacy' }).success).toBe(false)
+    expect(productSettingListQuerySchema.safeParse({ q: 'canonical' }).success).toBe(true)
   })
 })

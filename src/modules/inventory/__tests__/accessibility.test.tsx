@@ -2,7 +2,7 @@
 
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DataTable, ListPage, ProcessFlowPage } from '@/components/onedayos'
+import { DataTable, ListPage, ProcessFlowPage, SafePageErrorState } from '@/components/onedayos'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { StockAdjustmentForm } from '@/app/[orgSlug]/inventory/_components/stock-adjustment-form'
 import { inventoryProcessFlow } from '../process-flow'
@@ -39,8 +39,8 @@ describe('Inventory accessibility', () => {
     const { container } = render(<ProcessFlowPage breadcrumb="Inventory / Process Flow" definition={inventoryProcessFlow} />)
 
     expect(screen.getByRole('heading', { name: 'Inventory Process Flow' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Process steps' })).toBeInTheDocument()
-    expect(screen.getByText('Transactional Posting')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Current step details' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Transactional Posting' })).toBeInTheDocument()
     expect(screen.getByText('What this module does not own')).toBeInTheDocument()
     await expectNoA11yViolations(container)
   }, A11Y_TIMEOUT)
@@ -77,6 +77,20 @@ describe('Inventory accessibility', () => {
     expect(screen.getByLabelText('Current Quantity')).toHaveValue('8')
     expect(screen.getByRole('button', { name: 'Post Adjustment' })).toBeInTheDocument()
     expect(container.querySelector('input[name="orgId"]')).toBeNull()
+    await expectNoA11yViolations(container)
+  }, A11Y_TIMEOUT)
+
+  it('Dashboard aggregation-limit failure remains safe and accessible', async () => {
+    const { container } = render(
+      <SafePageErrorState
+        title="Dashboard analytics need a narrower scope"
+        message="The current organization exceeds the exact Dashboard processing limit. Narrow the operational scope or contact an administrator while aggregate optimization is prepared."
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Dashboard analytics need a narrower scope' })).toBeInTheDocument()
+    expect(container).toHaveTextContent('Narrow the operational scope')
+    expect(container).not.toHaveTextContent(/Prisma|candidate|stack|orgId/i)
     await expectNoA11yViolations(container)
   }, A11Y_TIMEOUT)
 })

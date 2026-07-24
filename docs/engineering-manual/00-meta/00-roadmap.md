@@ -34,6 +34,52 @@ ADR-0013 accepts the Runtime Appearance preference and registers:
 
 This amendment clarifies that Light / Dark / System appearance is an MVP personal browser-local preference, defaults to System, uses the `onedayos.appearance` storage key, and does not approve organization branding, Prisma fields, APIs, custom client CSS, or theme builders.
 
+## Inventory Demo V2 Founder Freeze Amendment — 2026-07
+
+The Founder accepts ADR-0014 through ADR-0020 and freezes the Inventory Demo V2 direction:
+
+- ADR-0014 — Compact Operational Page Header; V2-1.
+- ADR-0015 — Shared Records Built-In App and Context Preservation; V2-1.
+- ADR-0016 — Data Table V2 and Modal Interactions; V2-2 and V2-3.
+- ADR-0017 — Bounded Table Export; V2-5.
+- ADR-0018 — Tenant-Safe Caching Strategy; V2-7 after stabilization.
+- ADR-0019 — Curated Accent Presets; V2-8.
+- ADR-0020 — Inventory V2 Operational Workflows; V2-6.
+
+Registered frozen specifications:
+
+- `02-architecture/07-tenant-safe-caching-strategy.md`
+- `03-design-system/15-compact-operational-page-header.md`
+- `03-design-system/16-data-table-v2.md`
+- `03-design-system/17-modal-interaction-standard.md`
+- `03-design-system/18-curated-accent-presets.md`
+- `08-module-system/10-contextual-shared-records.md`
+- `14-testing-quality/10-data-table-modal-export-testing.md`
+- `17-module-specifications/09-inventory-v2-module.md`
+
+Registered governance reports and handoff:
+
+- `00-meta/INVENTORY-DEMO-V2-CHANGE-IMPACT-REPORT.md`
+- `00-meta/INVENTORY-DEMO-V2-IMPLEMENTATION-ROADMAP.md`
+- `00-meta/INVENTORY-DEMO-V2-FOUNDER-DECISION-REPORT.md`
+- `00-meta/INVENTORY-DEMO-V2-FREEZE-REPORT.md`
+- `00-meta/IMPLEMENTATION-PACKAGE-V2-1-COMPACT-HEADER-SHARED-RECORDS-IA.md`
+
+Frozen package order:
+
+```txt
+V2-1  Compact Header + Shared Records IA
+V2-2  Data Table V2
+V2-3  URL-Addressable Modals
+V2-4  Dashboard Charts + Process Flow Diagram V2
+V2-5  CSV/XLSX Export V1
+V2-6  Inventory V2 Core Transactions
+V2-7  Tenant-Safe Caching
+V2-8  Curated Accent Presets
+```
+
+Implementation is authorized one package at a time. Only V2-1 is authorized next, subject to explicit Founder approval of its implementation handoff. V2-2 through V2-8 remain blocked. Website asset production remains paused under the Founder Decision Report.
+
 # 1. Purpose
 
 This document is the canonical roadmap for the OneDayOS Engineering Manual.
@@ -260,6 +306,11 @@ This section defines the intended Engineering Manual document set.
 00-meta/02-architecture-decision-records.md
 00-meta/03-claude-workflow.md
 00-meta/04-definition-of-done.md
+00-meta/INVENTORY-DEMO-V2-CHANGE-IMPACT-REPORT.md
+00-meta/INVENTORY-DEMO-V2-IMPLEMENTATION-ROADMAP.md
+00-meta/INVENTORY-DEMO-V2-FOUNDER-DECISION-REPORT.md
+00-meta/INVENTORY-DEMO-V2-FREEZE-REPORT.md
+00-meta/IMPLEMENTATION-PACKAGE-V2-1-COMPACT-HEADER-SHARED-RECORDS-IA.md
 ```
 
 Purpose:
@@ -299,6 +350,7 @@ Define the principles used to classify every request.
 02-architecture/04-technology-baseline.md
 02-architecture/05-dependency-rules.md
 02-architecture/06-architecture-risk-register.md
+02-architecture/07-tenant-safe-caching-strategy.md
 ```
 
 Purpose:
@@ -321,6 +373,10 @@ Define dependency rules and risk tracking.
 03-design-system/06-empty-loading-error-states.md
 03-design-system/07-interaction-motion-standards.md
 03-design-system/08-accessibility-standards.md
+03-design-system/15-compact-operational-page-header.md
+03-design-system/16-data-table-v2.md
+03-design-system/17-modal-interaction-standard.md
+03-design-system/18-curated-accent-presets.md
 ```
 
 Purpose:
@@ -478,6 +534,7 @@ or append the detail to:
 08-module-system/07-module-dependencies.md
 08-module-system/08-module-versioning.md
 08-module-system/09-module-testing.md
+08-module-system/10-contextual-shared-records.md
 ```
 
 Purpose:
@@ -609,6 +666,7 @@ Make security part of the foundation, not a patch after modules exist.
 14-testing-quality/06-regression-testing.md
 14-testing-quality/07-test-data-fixtures.md
 14-testing-quality/08-ci-quality-gates.md
+14-testing-quality/10-data-table-modal-export-testing.md
 ```
 
 Purpose:
@@ -667,6 +725,7 @@ Turn the “one business day” promise into a repeatable operating process.
 17-module-specifications/06-assets-module.md
 17-module-specifications/07-visitor-management-module.md
 17-module-specifications/08-incident-reporting-module.md
+17-module-specifications/09-inventory-v2-module.md
 ```
 
 Purpose:
@@ -1433,6 +1492,15 @@ ADR-0008: Platform Services require evidence
 ADR-0009: Dynamic Systems deferred
 ADR-0010: Normal clients use shared infrastructure
 ADR-0011: Human-centred UX standard
+ADR-0012: OneDayOS Compact design preset
+ADR-0013: Runtime appearance preference
+ADR-0014: Compact operational page header
+ADR-0015: Shared Records built-in app and context preservation
+ADR-0016: Data Table V2 and modal interactions
+ADR-0017: Bounded table export
+ADR-0018: Tenant-safe caching strategy
+ADR-0019: Curated accent presets
+ADR-0020: Inventory V2 operational workflows
 ```
 
 Older draft backlog numbering is superseded by the ADR files under `00-meta/adrs/`.
@@ -1614,38 +1682,13 @@ AppCare is not unlimited custom development
 
 # 20. Current Recommended Next Step
 
-After this roadmap is approved, the next practical step is not to create more new manual sections.
-
-The next practical step is:
+The current next step is explicit Founder approval to execute:
 
 ```txt
-Manual Consolidation and Freeze Pass
+00-meta/IMPLEMENTATION-PACKAGE-V2-1-COMPACT-HEADER-SHARED-RECORDS-IA.md
 ```
 
-That means:
-
-```txt
-1. Move all generated Markdown artifacts into docs/engineering-manual/.
-2. Normalize file names and paths.
-3. Normalize document headers.
-4. Mark superseded versions.
-5. Resolve contradictions.
-6. Create initial ADR files.
-7. Freeze Batch A, B, C, and D first.
-8. Create Claude Implementation Package 1.
-9. Only then ask Claude to restart implementation.
-```
-
-Recommended immediate work order:
-
-```txt
-1. Freeze governance/meta docs.
-2. Freeze foundation docs.
-3. Freeze architecture/security/kernel/sdk/data docs.
-4. Create ADR-0001 through ADR-0010.
-5. Prepare Claude Implementation Package 1.
-6. Start restarted platform implementation.
-```
+That package alone may implement compact operational headers, the permission-aware Shared Records built-in app, Inventory-context shared-record navigation, and the Product Settings navigation migration. V2-2 through V2-8 remain blocked. Website asset production remains paused.
 
 ---
 

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { createClient } from '@supabase/supabase-js'
+import { resolveSupabaseAdminApiKey } from '../src/kernel/env/supabase-admin-key'
 import {
   CANONICAL_DEMO_CATEGORY,
   CANONICAL_DEMO_PRODUCTS,
@@ -40,12 +41,19 @@ export type DemoDataSnapshot = {
   warehouseOrgAdminPermissionCount: number
   productCategoryExists: boolean
   canonicalProductCount: number
+  activeProductCount: number
   supplierExists: boolean
   warehouseExists: boolean
+  activeWarehouseCount: number
   productExtensionCount: number
   stockBalanceCount: number
   stockMovementCount: number
   stockAdjustmentCount: number
+  recentInboundMovementCount: number
+  recentOutboundMovementCount: number
+  recentAdjustmentCount: number
+  unsupportedMovementTypeCount: number
+  canonicalBalancesExact: boolean
   coffeeBeansLowStock: boolean
 }
 
@@ -104,6 +112,13 @@ export function validateControlledDemoEnv(env: Record<string, string | undefined
 
   for (const key of CONTROLLED_DEMO_REQUIRED_ENV) {
     checks.push(check(`Env ${key} present`, Boolean(env[key]), `Set ${key} in .env.local or the shell environment.`))
+  }
+
+  try {
+    resolveSupabaseAdminApiKey(env)
+    checks.push(check('Supabase admin API key is valid', true))
+  } catch {
+    checks.push(check('Supabase admin API key is valid', false, 'Set SUPABASE_SECRET_KEY or a valid legacy service-role key.'))
   }
 
   for (const key of ['ONEDAYOS_DEMO_ADMIN_PASSWORD', 'ONEDAYOS_DEMO_WAREHOUSE_PASSWORD']) {
@@ -170,34 +185,46 @@ export function checksFromDemoData(snapshot: DemoDataSnapshot): DemoCheck[] {
     check('Warehouse Operator has no Org Admin permission', snapshot.warehouseOrgAdminPermissionCount === 0, 'Run npm run demo:provision to repair stale permissions.'),
     check('Canonical Product Category exists', snapshot.productCategoryExists, 'Run npm run demo:provision.'),
     check('Three canonical Products exist', snapshot.canonicalProductCount === 3, 'Run npm run demo:provision.'),
+    check('Exactly three active Products exist', snapshot.activeProductCount === 3, 'Run npm run demo:reset to remove noncanonical sandbox Product rows.'),
     check('Canonical Supplier exists', snapshot.supplierExists, 'Run npm run demo:provision.'),
     check('Canonical Warehouse exists', snapshot.warehouseExists, 'Run npm run demo:provision.'),
+    check('Exactly one active Warehouse exists', snapshot.activeWarehouseCount === 1, 'Run npm run demo:reset to remove noncanonical sandbox Warehouse rows.'),
     check('Three InventoryProductExtension rows exist', snapshot.productExtensionCount === 3, 'Run npm run demo:provision.'),
     check('Three StockBalance rows exist', snapshot.stockBalanceCount === 3, 'Run npm run demo:provision.'),
     check('StockMovement rows exist', snapshot.stockMovementCount > 0, 'Run npm run demo:provision.'),
     check('StockAdjustment rows exist', snapshot.stockAdjustmentCount > 0, 'Run npm run demo:provision.'),
+    check('Recent inbound demo movement exists', snapshot.recentInboundMovementCount > 0, 'Run npm run demo:reset to rebuild recent canonical activity.'),
+    check('Recent outbound demo movement exists', snapshot.recentOutboundMovementCount > 0, 'Run npm run demo:reset to rebuild recent canonical activity.'),
+    check('Recent demo adjustments exist', snapshot.recentAdjustmentCount > 0, 'Run npm run demo:reset to rebuild recent canonical activity.'),
+    check('No unsupported demo movement type exists', snapshot.unsupportedMovementTypeCount === 0, 'Run npm run demo:reset to repair the movement vocabulary.'),
+    check('Canonical final balances are exact', snapshot.canonicalBalancesExact, 'Run npm run demo:reset to repair canonical balances.'),
     check('Coffee Beans canonical low-stock state exists', snapshot.coffeeBeansLowStock, 'Run npm run demo:reset, then npm run demo:check.'),
   ]
 }
 
-async function findAuthUserByEmail(
+async function findAuthUsersByEmail(
   supabaseAdmin: SupabaseAdminUserReader,
-  email: string,
-): Promise<SupabaseAuthUserSummary | null> {
-  const normalizedEmail = email.toLowerCase()
+  emails: string[],
+): Promise<Map<string, SupabaseAuthUserSummary>> {
+  const normalizedEmails = new Set(emails.map((email) => email.toLowerCase()))
+  const found = new Map<string, SupabaseAuthUserSummary>()
   const perPage = 1000
 
   for (let page = 1; page <= 20; page += 1) {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
 
     if (error) {
-      throw new Error('Could not inspect Supabase Auth users for demo readiness.')
+      const status = typeof error === 'object' && error && 'status' in error ? String(error.status) : 'unknown'
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : 'unknown'
+      throw new Error(`Could not inspect Supabase Auth users for demo readiness (status ${status}, code ${code}).`)
     }
 
-    const found = data.users.find((user) => user.email?.toLowerCase() === normalizedEmail)
+    for (const user of data.users) {
+      const email = user.email?.toLowerCase()
+      if (email && normalizedEmails.has(email)) found.set(email, user)
+    }
 
-    if (found) return found
-    if (data.users.length < perPage) return null
+    if (found.size === normalizedEmails.size || data.users.length < perPage) return found
   }
 
   throw new Error('Supabase Auth user list exceeded the readiness safety page limit.')
@@ -209,7 +236,7 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       connectionString: env.DIRECT_URL ?? env.DATABASE_URL,
     }),
   })
-  const supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL ?? '', env.SUPABASE_SERVICE_ROLE_KEY ?? '', {
+  const supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL ?? '', resolveSupabaseAdminApiKey(env), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -217,10 +244,11 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
   })
 
   try {
-    const [adminAuthUser, warehouseAuthUser] = await Promise.all([
-      findAuthUserByEmail(supabaseAdmin, env.ONEDAYOS_DEMO_ADMIN_EMAIL ?? ''),
-      findAuthUserByEmail(supabaseAdmin, env.ONEDAYOS_DEMO_WAREHOUSE_EMAIL ?? ''),
-    ])
+    const adminEmail = (env.ONEDAYOS_DEMO_ADMIN_EMAIL ?? '').toLowerCase()
+    const warehouseEmail = (env.ONEDAYOS_DEMO_WAREHOUSE_EMAIL ?? '').toLowerCase()
+    const authUsers = await findAuthUsersByEmail(supabaseAdmin, [adminEmail, warehouseEmail])
+    const adminAuthUser = authUsers.get(adminEmail) ?? null
+    const warehouseAuthUser = authUsers.get(warehouseEmail) ?? null
     const org = await prisma.organization.findUnique({
       where: { slug: env.ONEDAYOS_DEMO_ORG_SLUG ?? '' },
       select: { id: true },
@@ -242,12 +270,19 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
         warehouseOrgAdminPermissionCount: 0,
         productCategoryExists: false,
         canonicalProductCount: 0,
+        activeProductCount: 0,
         supplierExists: false,
         warehouseExists: false,
+        activeWarehouseCount: 0,
         productExtensionCount: 0,
         stockBalanceCount: 0,
         stockMovementCount: 0,
         stockAdjustmentCount: 0,
+        recentInboundMovementCount: 0,
+        recentOutboundMovementCount: 0,
+        recentAdjustmentCount: 0,
+        unsupportedMovementTypeCount: 0,
+        canonicalBalancesExact: false,
         coffeeBeansLowStock: false,
       }
     }
@@ -303,12 +338,80 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       },
     })
     const productIds = products.map((product) => product.id)
-    const [productExtensionCount, stockBalanceCount, stockMovementCount, stockAdjustmentCount] = await Promise.all([
+    const today = new Date()
+    const rangeStart = new Date(Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() - 29,
+    ))
+    const rangeEnd = new Date(Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate() + 1,
+    ))
+    const implementedMovementTypes = ['opening_balance', 'adjustment_in', 'adjustment_out']
+    const [
+      activeProductCount,
+      activeWarehouseCount,
+      productExtensionCount,
+      stockBalanceCount,
+      stockMovementCount,
+      stockAdjustmentCount,
+      recentInboundMovementCount,
+      recentOutboundMovementCount,
+      recentAdjustmentCount,
+      unsupportedMovementTypeCount,
+      canonicalBalances,
+    ] = await Promise.all([
+      prisma.product.count({ where: { orgId: org.id, isActive: true, deletedAt: null } }),
+      prisma.warehouse.count({ where: { orgId: org.id, isActive: true, deletedAt: null } }),
       prisma.inventoryProductExtension.count({ where: { orgId: org.id, productId: { in: productIds }, deletedAt: null } }),
       prisma.stockBalance.count({ where: { orgId: org.id, productId: { in: productIds } } }),
       prisma.stockMovement.count({ where: { orgId: org.id } }),
       prisma.stockAdjustment.count({ where: { orgId: org.id, deletedAt: null } }),
+      prisma.stockMovement.count({
+        where: {
+          orgId: org.id,
+          type: { in: ['opening_balance', 'adjustment_in'] },
+          occurredAt: { gte: rangeStart, lt: rangeEnd },
+        },
+      }),
+      prisma.stockMovement.count({
+        where: {
+          orgId: org.id,
+          type: 'adjustment_out',
+          occurredAt: { gte: rangeStart, lt: rangeEnd },
+        },
+      }),
+      prisma.stockAdjustment.count({
+        where: {
+          orgId: org.id,
+          deletedAt: null,
+          createdAt: { gte: rangeStart, lt: rangeEnd },
+        },
+      }),
+      prisma.stockMovement.count({
+        where: {
+          orgId: org.id,
+          type: { notIn: implementedMovementTypes },
+        },
+      }),
+      prisma.stockBalance.findMany({
+        where: { orgId: org.id, productId: { in: productIds } },
+        select: {
+          quantity: true,
+          product: { select: { code: true } },
+        },
+      }),
     ])
+    const expectedBalances = new Map<string, number>(
+      CANONICAL_DEMO_PRODUCTS.map((product) => [product.code, Number(product.quantity)]),
+    )
+    const canonicalBalancesExact =
+      canonicalBalances.length === CANONICAL_DEMO_PRODUCTS.length &&
+      canonicalBalances.every((balance) => (
+        Number(balance.quantity) === expectedBalances.get(balance.product.code)
+      ))
     const coffeeProduct = products.find((product) => product.code === 'COF-1KG')
     const [coffeeExtension, coffeeBalance] = coffeeProduct
       ? await Promise.all([
@@ -343,12 +446,19 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       warehouseOrgAdminPermissionCount: warehousePermissions.filter((permission) => permissionKey(permission) === 'kernel.organization.manage').length,
       productCategoryExists: Boolean(category),
       canonicalProductCount: products.length,
+      activeProductCount,
       supplierExists: Boolean(supplier),
       warehouseExists: Boolean(warehouse),
+      activeWarehouseCount,
       productExtensionCount,
       stockBalanceCount,
       stockMovementCount,
       stockAdjustmentCount,
+      recentInboundMovementCount,
+      recentOutboundMovementCount,
+      recentAdjustmentCount,
+      unsupportedMovementTypeCount,
+      canonicalBalancesExact,
       coffeeBeansLowStock,
     }
   } finally {

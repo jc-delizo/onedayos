@@ -33,7 +33,6 @@ export const CONTROLLED_DEMO_REQUIRED_ENV = [
   'DIRECT_URL',
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
   'NEXT_PUBLIC_APP_URL',
   'ONEDAYOS_DEMO_MODE',
   'ONEDAYOS_PUBLIC_REGISTRATION_ENABLED',
@@ -89,6 +88,56 @@ export const CANONICAL_DEMO_PRODUCTS = [
   { code: 'TEA-1L', name: 'Iced Tea 1L', unit: 'bottle', quantity: '35', reorderPoint: '25' },
   { code: 'COF-1KG', name: 'Coffee Beans 1kg', unit: 'bag', quantity: '8', reorderPoint: '10' },
 ] as const
+
+export type CanonicalDemoActivityStep = {
+  quantityBefore: string
+  quantityAfter: string
+  reason: string
+  occurredAt: Date
+}
+
+const CANONICAL_DEMO_ACTIVITY = {
+  'WAT-500': [
+    { daysAgo: 24, quantityBefore: '0', quantityAfter: '100', reason: 'Sandbox opening balance' },
+    { daysAgo: 12, quantityBefore: '100', quantityAfter: '135', reason: 'Sandbox cycle count increase' },
+    { daysAgo: 3, quantityBefore: '135', quantityAfter: '120', reason: 'Sandbox cycle count correction' },
+  ],
+  'TEA-1L': [
+    { daysAgo: 23, quantityBefore: '0', quantityAfter: '30', reason: 'Sandbox opening balance' },
+    { daysAgo: 11, quantityBefore: '30', quantityAfter: '42', reason: 'Sandbox cycle count increase' },
+    { daysAgo: 2, quantityBefore: '42', quantityAfter: '35', reason: 'Sandbox cycle count correction' },
+  ],
+  'COF-1KG': [
+    { daysAgo: 22, quantityBefore: '0', quantityAfter: '10', reason: 'Sandbox opening balance' },
+    { daysAgo: 10, quantityBefore: '10', quantityAfter: '14', reason: 'Sandbox cycle count increase' },
+    { daysAgo: 1, quantityBefore: '14', quantityAfter: '8', reason: 'Sandbox cycle count correction' },
+  ],
+} as const
+
+function utcDemoTimestamp(now: Date, daysAgo: number, hour: number): Date {
+  return new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() - daysAgo,
+    hour,
+  ))
+}
+
+export function buildCanonicalDemoActivity(
+  now: Date,
+): Record<(typeof CANONICAL_DEMO_PRODUCTS)[number]['code'], CanonicalDemoActivityStep[]> {
+  return Object.fromEntries(
+    CANONICAL_DEMO_PRODUCTS.map((product, productIndex) => [
+      product.code,
+      CANONICAL_DEMO_ACTIVITY[product.code].map((step) => ({
+        quantityBefore: step.quantityBefore,
+        quantityAfter: step.quantityAfter,
+        reason: step.reason,
+        occurredAt: utcDemoTimestamp(now, step.daysAgo, 9 + productIndex),
+      })),
+    ]),
+  ) as Record<(typeof CANONICAL_DEMO_PRODUCTS)[number]['code'], CanonicalDemoActivityStep[]>
+}
 
 export function loadDemoEnvFiles(): void {
   if (existsSync('.env.local')) {

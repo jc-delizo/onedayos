@@ -45,6 +45,16 @@
   --color-neutral-foreground: #fafafa;
   --color-neutral-soft: #f4f4f5;
 
+  --chart-primary: var(--color-brand);
+  --chart-secondary: var(--color-information);
+  --chart-tertiary: #7c3aed;
+  --chart-muted: var(--color-subtle);
+  --chart-positive: var(--color-success);
+  --chart-negative: var(--color-destructive);
+  --chart-warning: var(--color-warning);
+  --chart-neutral: var(--color-neutral);
+  --chart-grid: var(--color-border);
+
   --color-focus-ring: #f97316;
 
   --color-sidebar-background: #08111f;
@@ -121,6 +131,16 @@
   --color-neutral: #d4d4d8;
   --color-neutral-foreground: #18181b;
   --color-neutral-soft: #27272a;
+
+  --chart-primary: var(--color-brand);
+  --chart-secondary: var(--color-information);
+  --chart-tertiary: #c4b5fd;
+  --chart-muted: var(--color-subtle);
+  --chart-positive: var(--color-success);
+  --chart-negative: var(--color-destructive);
+  --chart-warning: var(--color-warning);
+  --chart-neutral: var(--color-neutral);
+  --chart-grid: var(--color-border);
 
   --color-focus-ring: #fb923c;
 

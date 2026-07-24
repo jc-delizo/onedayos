@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { createTableQuerySchema } from '@/components/onedayos/data-table/query-schema'
 
 const emptyToUndefined = (value: unknown) => (value === '' ? undefined : value)
 
@@ -15,9 +16,7 @@ export const idParamSchema = z.strictObject({
   id: requiredText(128),
 })
 
-export const listQuerySchema = z.strictObject({
-  search: optionalText(120),
-})
+export const listQuerySchema = createTableQuerySchema(['name', 'updatedAt'], {})
 
 export type BusinessObjectListQuery = z.infer<typeof listQuerySchema>
 

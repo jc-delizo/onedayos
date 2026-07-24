@@ -23,7 +23,7 @@ describe('inventory manifest', () => {
   })
 
   it('declares shared Business Objects separately from module-owned entities', () => {
-    expect(inventoryManifest.businessObjectsUsed).toEqual(['Product', 'ProductCategory', 'Supplier', 'Warehouse'])
+    expect(inventoryManifest.businessObjectsUsed).toEqual(['Product', 'ProductCategory', 'Customer', 'Supplier', 'Warehouse'])
     expect(inventoryManifest.ownedEntities.map((entity) => entity.key)).toEqual([
       'inventory_product_extension',
       'stock_balance',

@@ -12,9 +12,12 @@ import {
   requireRecord,
 } from './service-utils'
 
+type BusinessObjectListQueryInput = Partial<BusinessObjectListQuery>
+
 type Delegate<TRecord> = {
   findMany(args: any): Promise<TRecord[]>
   findFirst(args: any): Promise<TRecord | null>
+  count(args: any): Promise<number>
   create(args: any): Promise<TRecord>
   update(args: any): Promise<TRecord>
 }
@@ -45,6 +48,7 @@ type ServiceConfig<TCreate extends Record<string, unknown>, TUpdate extends Reco
   eventIdField: string
   searchFields: string[]
   orderBy?: Record<string, string>
+  listArgs?: Record<string, unknown>
   createData: (input: TCreate, ctx: PlatformContext, prisma: PrismaClient) => Promise<Record<string, unknown>> | Record<string, unknown>
   updateData: (input: TUpdate, ctx: PlatformContext, prisma: PrismaClient, id: string) => Promise<Record<string, unknown>> | Record<string, unknown>
   deactivateData?: Record<string, unknown>
@@ -57,8 +61,7 @@ function eventIdentity(config: { eventIdField: string }, record: { id: string })
   }
 }
 
-function activeWhere(ctx: PlatformContext, id?: string, query?: BusinessObjectListQuery) {
-  const search = containsSearch(query?.search, [])
+function activeWhere(ctx: PlatformContext, id?: string) {
   const where: Record<string, unknown> = {
     orgId: ctx.org.id,
     deletedAt: null,
@@ -66,10 +69,6 @@ function activeWhere(ctx: PlatformContext, id?: string, query?: BusinessObjectLi
 
   if (id) {
     where.id = id
-  }
-
-  if (search && search.length > 0) {
-    where.OR = search
   }
 
   return where
@@ -89,21 +88,74 @@ export function createBusinessObjectService<
   TUpdate extends Record<string, unknown>,
   TRecord extends { id: string },
 >(config: ServiceConfig<TCreate, TUpdate, TRecord>) {
+  function listWhere(ctx: PlatformContext, query: BusinessObjectListQueryInput) {
+    const extended = query as BusinessObjectListQueryInput & {
+      categoryId?: string
+      isActive?: boolean
+      branchId?: string
+      departmentId?: string
+      employmentStatus?: string
+    }
+    const where = activeWhere(ctx)
+    const search = containsSearch(query.q ?? query.search, config.searchFields)
+    if (search?.length) where.OR = search
+    if (extended.categoryId) where.categoryId = extended.categoryId
+    if (extended.isActive !== undefined) where.isActive = extended.isActive
+    if (extended.branchId) where.branchId = extended.branchId
+    if (extended.departmentId) where.departmentId = extended.departmentId
+    if (extended.employmentStatus) where.employmentStatus = extended.employmentStatus
+    return where
+  }
+
+  function listOrderBy(query: BusinessObjectListQueryInput) {
+    const safeSort = ['name', 'code', 'employeeNo', 'updatedAt'].includes(query.sort ?? '')
+      ? query.sort
+      : undefined
+    return [
+      safeSort ? { [safeSort]: query.direction ?? 'asc' } : (config.orderBy ?? { name: 'asc' }),
+      { id: 'asc' },
+    ]
+  }
+
   return {
-    async list(ctx: PlatformContext, query: BusinessObjectListQuery = {}): Promise<TRecord[]> {
+    async list(ctx: PlatformContext, query: BusinessObjectListQueryInput = {}): Promise<TRecord[]> {
       await requireBusinessObjectPermission(ctx, config.permissions.READ)
       const prisma = getBusinessObjectPrisma(ctx)
-      const search = containsSearch(query.search, config.searchFields)
-      const where = activeWhere(ctx, undefined, query)
-
-      if (search && search.length > 0) {
-        where.OR = search
-      }
+      const where = listWhere(ctx, query)
 
       return config.delegate(prisma).findMany({
+        ...config.listArgs,
         where,
-        orderBy: config.orderBy ?? { name: 'asc' },
+        orderBy: listOrderBy(query),
+        ...(query.page && query.pageSize
+          ? { skip: (query.page - 1) * query.pageSize, take: query.pageSize }
+          : {}),
       })
+    },
+
+    async listPage(ctx: PlatformContext, query: BusinessObjectListQuery) {
+      await requireBusinessObjectPermission(ctx, config.permissions.READ)
+      const delegate = config.delegate(getBusinessObjectPrisma(ctx))
+      const where = listWhere(ctx, query)
+      const [rows, total] = await Promise.all([
+        delegate.findMany({
+          ...config.listArgs,
+          where,
+          orderBy: listOrderBy(query),
+          skip: (query.page - 1) * query.pageSize,
+          take: query.pageSize,
+        }),
+        delegate.count({ where }),
+      ])
+      return {
+        rows,
+        meta: {
+          page: query.page,
+          pageSize: query.pageSize,
+          total,
+          totalPages: Math.ceil(total / query.pageSize),
+        },
+      }
     },
 
     async getById(ctx: PlatformContext, id: string): Promise<TRecord> {

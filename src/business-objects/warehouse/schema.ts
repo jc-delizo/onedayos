@@ -1,7 +1,12 @@
 import { z } from 'zod'
-import { listQuerySchema, optionalText, requiredText } from '../shared/schema'
+import { createTableQuerySchema } from '@/components/onedayos/data-table/query-schema'
+import { optionalText, requiredText } from '../shared/schema'
 
-export const warehouseListQuerySchema = listQuerySchema
+const queryBoolean = z.preprocess((value) => value === 'true' ? true : value === 'false' ? false : value, z.boolean())
+export const warehouseListQuerySchema = createTableQuerySchema(
+  ['code', 'name', 'updatedAt'],
+  { isActive: queryBoolean.optional() },
+)
 
 export const createWarehouseSchema = z.strictObject({
   code: requiredText(80),

@@ -16,7 +16,7 @@ export const inventoryManifest = defineModuleManifest({
   compatibility: INVENTORY_MODULE_COMPATIBILITY,
   icon: 'Package',
   dependencies: [],
-  businessObjectsUsed: ['Product', 'ProductCategory', 'Supplier', 'Warehouse'],
+  businessObjectsUsed: ['Product', 'ProductCategory', 'Customer', 'Supplier', 'Warehouse'],
   ownedEntities: [
     {
       key: 'inventory_product_extension',

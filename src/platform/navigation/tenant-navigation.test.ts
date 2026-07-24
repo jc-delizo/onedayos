@@ -81,12 +81,12 @@ describe('tenant app shell navigation resolver', () => {
     )
     const staff = buildTenantAppShellModel(makeCtx([...inventoryReadGrants, ...objectReadGrants]))
 
-    expect(admin.apps.map((app) => app.id)).toEqual(['inventory', 'organization'])
-    expect(staff.apps.map((app) => app.id)).toEqual(['inventory'])
+    expect(admin.apps.map((app) => app.id)).toEqual(['inventory', 'shared-records', 'organization'])
+    expect(staff.apps.map((app) => app.id)).toEqual(['inventory', 'shared-records'])
     expect(staff.sidebars.organization).toEqual([])
   })
 
-  it('keeps Inventory sidebar operational and excludes People and Customers', () => {
+  it('keeps Inventory sidebar operational, contextual, and free of Product Settings', () => {
     const model = buildTenantAppShellModel(
       makeCtx([
         ...inventoryReadGrants,
@@ -96,35 +96,36 @@ describe('tenant app shell navigation resolver', () => {
     )
     const inventoryLabels = model.sidebars.inventory.flatMap((section) => section.items.map((item) => item.label))
 
-    expect(inventoryLabels.slice(0, 6)).toEqual([
+    expect(inventoryLabels.slice(0, 5)).toEqual([
       'Dashboard',
       'Process Flow',
-      'Product Settings',
       'Stock Levels',
       'Stock Movements',
       'Stock Adjustments',
     ])
     expect(inventoryLabels).toContain('Products')
     expect(inventoryLabels).toContain('Categories')
+    expect(inventoryLabels).toContain('Customers')
     expect(inventoryLabels).toContain('Suppliers')
     expect(inventoryLabels).toContain('Warehouses')
+    expect(inventoryLabels).not.toContain('Product Settings')
     expect(inventoryLabels).not.toContain('People')
     expect(inventoryLabels).not.toContain('Employees')
-    expect(inventoryLabels).not.toContain('Customers')
+    const relatedItems = model.sidebars.inventory.find((section) => section.id === 'related-records')?.items ?? []
+    expect(relatedItems.every((item) => item.href.startsWith('/acme/inventory/related/'))).toBe(true)
   })
 
   it('builds a least-privilege Warehouse Operator shell without Organization or unrelated Records', () => {
     const model = buildTenantAppShellModel(makeCtx(warehouseOperatorGrants))
     const appLabels = model.apps.map((app) => app.label)
     const inventoryLabels = model.sidebars.inventory.flatMap((section) => section.items.map((item) => item.label))
-    const recordLabels = model.sidebars.records.flatMap((section) => section.items.map((item) => item.label))
+    const recordLabels = model.sidebars['shared-records'].flatMap((section) => section.items.map((item) => item.label))
 
-    expect(appLabels).toEqual(['Inventory'])
+    expect(appLabels).toEqual(['Inventory', 'Shared Records'])
     expect(model.sidebars.organization).toEqual([])
     expect(inventoryLabels).toEqual([
       'Dashboard',
       'Process Flow',
-      'Product Settings',
       'Stock Levels',
       'Stock Movements',
       'Stock Adjustments',
@@ -137,5 +138,20 @@ describe('tenant app shell navigation resolver', () => {
     expect(inventoryLabels).not.toContain('Employees')
     expect(inventoryLabels).not.toContain('Customers')
     expect(recordLabels).toEqual(['Products', 'Categories', 'Suppliers', 'Warehouses'])
+  })
+
+  it('hides Shared Records when no relevant object read permission exists', () => {
+    const model = buildTenantAppShellModel(makeCtx(inventoryReadGrants))
+
+    expect(model.apps.map((app) => app.id)).toEqual(['inventory'])
+    expect(model.sidebars['shared-records']).toEqual([])
+  })
+
+  it('derives Shared Records from permissions, not enabled modules', () => {
+    const ctx = makeCtx(objectReadGrants)
+    ctx.enabledModules = []
+    const model = buildTenantAppShellModel(ctx)
+
+    expect(model.apps.map((app) => app.id)).toEqual(['shared-records'])
   })
 })

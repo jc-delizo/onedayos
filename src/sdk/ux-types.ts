@@ -28,12 +28,22 @@ export type ProcessFlowStep = {
   inputs?: readonly string[]
   outputs?: readonly string[]
   warning?: string
+  status?: 'current' | 'planned'
+}
+
+export type ProcessFlowConnection = {
+  from: string
+  to: string
+  label?: string
 }
 
 export type ProcessFlowDefinition = {
   title: string
   description: string
   steps: readonly ProcessFlowStep[]
+  connections?: readonly ProcessFlowConnection[]
+  plannedSteps?: readonly ProcessFlowStep[]
+  plannedLabel?: string
   owns: readonly string[]
   doesNotOwn: readonly string[]
   currentBoundaries?: readonly string[]

@@ -29,13 +29,22 @@ const adminModel: TenantAppShellModel = {
       id: 'inventory',
       label: 'Inventory',
       href: '/acme/inventory',
-      description: 'Stock levels, product settings, movements, and manual adjustments.',
+      description: 'Stock levels, movements, tracking settings, and manual adjustments.',
+      icon: 'Package',
+    },
+    {
+      id: 'shared-records',
+      label: 'Shared Records',
+      href: '/acme/records',
+      description: 'Organization-wide Products, Categories, Customers, Suppliers, and Warehouses.',
+      icon: 'Database',
     },
     {
       id: 'organization',
       label: 'Organization',
       href: '/acme/organization',
       description: 'People, branches, departments, and organization-wide settings.',
+      icon: 'Building2',
     },
   ],
   sidebars: {
@@ -45,6 +54,7 @@ const adminModel: TenantAppShellModel = {
         label: 'Apps',
         items: [
           { id: 'app-inventory', label: 'Inventory', href: '/acme/inventory' },
+          { id: 'app-shared-records', label: 'Shared Records', href: '/acme/records' },
           { id: 'app-organization', label: 'Organization', href: '/acme/organization' },
         ],
       },
@@ -56,7 +66,6 @@ const adminModel: TenantAppShellModel = {
         items: [
           { id: 'inventory-dashboard', label: 'Dashboard', href: '/acme/inventory', exact: true },
           { id: 'inventory-process-flow', label: 'Process Flow', href: '/acme/inventory/process-flow' },
-          { id: 'inventory-product-settings', label: 'Product Settings', href: '/acme/inventory/product-settings' },
           { id: 'inventory-stock-levels', label: 'Stock Levels', href: '/acme/inventory/stock-levels' },
           { id: 'inventory-stock-movements', label: 'Stock Movements', href: '/acme/inventory/stock-movements' },
           { id: 'inventory-stock-adjustments', label: 'Stock Adjustments', href: '/acme/inventory/stock-adjustments' },
@@ -66,10 +75,11 @@ const adminModel: TenantAppShellModel = {
         id: 'related-records',
         label: 'Related Records',
         items: [
-          { id: 'products', label: 'Products', href: '/acme/records/products' },
-          { id: 'product-categories', label: 'Categories', href: '/acme/records/product-categories' },
-          { id: 'suppliers', label: 'Suppliers', href: '/acme/records/suppliers' },
-          { id: 'warehouses', label: 'Warehouses', href: '/acme/records/warehouses' },
+          { id: 'products', label: 'Products', href: '/acme/inventory/related/products' },
+          { id: 'product-categories', label: 'Categories', href: '/acme/inventory/related/product-categories' },
+          { id: 'customers', label: 'Customers', href: '/acme/inventory/related/customers' },
+          { id: 'suppliers', label: 'Suppliers', href: '/acme/inventory/related/suppliers' },
+          { id: 'warehouses', label: 'Warehouses', href: '/acme/inventory/related/warehouses' },
         ],
       },
     ],
@@ -88,15 +98,16 @@ const adminModel: TenantAppShellModel = {
         ],
       },
     ],
-    records: [
+    'shared-records': [
       {
         id: 'shared-records',
         label: 'Shared Records',
         items: [
-          { id: 'employees', label: 'Employees', href: '/acme/records/employees' },
           { id: 'products', label: 'Products', href: '/acme/records/products' },
+          { id: 'product-categories', label: 'Categories', href: '/acme/records/product-categories' },
           { id: 'customers', label: 'Customers', href: '/acme/records/customers' },
           { id: 'suppliers', label: 'Suppliers', href: '/acme/records/suppliers' },
+          { id: 'warehouses', label: 'Warehouses', href: '/acme/records/warehouses' },
         ],
       },
     ],
@@ -110,14 +121,17 @@ function renderWithTheme(ui: Parameters<typeof render>[0]) {
 
 const staffModel: TenantAppShellModel = {
   ...adminModel,
-  apps: [adminModel.apps[0]],
+  apps: adminModel.apps.slice(0, 2),
   sidebars: {
     ...adminModel.sidebars,
     workspace: [
       {
         id: 'apps',
         label: 'Apps',
-        items: [{ id: 'app-inventory', label: 'Inventory', href: '/acme/inventory' }],
+        items: [
+          { id: 'app-inventory', label: 'Inventory', href: '/acme/inventory' },
+          { id: 'app-shared-records', label: 'Shared Records', href: '/acme/records' },
+        ],
       },
     ],
     organization: [],
@@ -162,6 +176,7 @@ describe('TenantAppShell navigation', () => {
 
     const menu = screen.getByRole('menu', { name: 'Apps' })
     expect(within(menu).getByRole('menuitem', { name: /Inventory: Stock levels/i })).toHaveAttribute('href', '/acme/inventory')
+    expect(within(menu).getByRole('menuitem', { name: /Shared Records: Organization-wide/i })).toHaveAttribute('href', '/acme/records')
     expect(within(menu).getByRole('menuitem', { name: /Organization: People/i })).toHaveAttribute('href', '/acme/organization')
   })
 
@@ -179,6 +194,7 @@ describe('TenantAppShell navigation', () => {
 
     const menu = screen.getByRole('menu', { name: 'Apps' })
     expect(within(menu).getByRole('menuitem', { name: /Inventory: Stock levels/i })).toBeInTheDocument()
+    expect(within(menu).getByRole('menuitem', { name: /Shared Records: Organization-wide/i })).toBeInTheDocument()
     expect(within(menu).queryByRole('menuitem', { name: /Organization: People/i })).not.toBeInTheDocument()
   })
 
@@ -195,13 +211,14 @@ describe('TenantAppShell navigation', () => {
     expect(within(nav).getByText('Inventory')).toBeInTheDocument()
     expect(within(nav).getByText('Related Records')).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'Process Flow' })).toHaveAttribute('href', '/acme/inventory/process-flow')
-    expect(within(nav).getByRole('link', { name: 'Products' })).toHaveAttribute('href', '/acme/records/products')
-    expect(within(nav).getByRole('link', { name: 'Categories' })).toHaveAttribute('href', '/acme/records/product-categories')
-    expect(within(nav).getByRole('link', { name: 'Suppliers' })).toHaveAttribute('href', '/acme/records/suppliers')
-    expect(within(nav).getByRole('link', { name: 'Warehouses' })).toHaveAttribute('href', '/acme/records/warehouses')
+    expect(within(nav).getByRole('link', { name: 'Products' })).toHaveAttribute('href', '/acme/inventory/related/products')
+    expect(within(nav).getByRole('link', { name: 'Categories' })).toHaveAttribute('href', '/acme/inventory/related/product-categories')
+    expect(within(nav).getByRole('link', { name: 'Customers' })).toHaveAttribute('href', '/acme/inventory/related/customers')
+    expect(within(nav).getByRole('link', { name: 'Suppliers' })).toHaveAttribute('href', '/acme/inventory/related/suppliers')
+    expect(within(nav).getByRole('link', { name: 'Warehouses' })).toHaveAttribute('href', '/acme/inventory/related/warehouses')
     expect(within(nav).queryByRole('link', { name: 'People' })).not.toBeInTheDocument()
     expect(within(nav).queryByRole('link', { name: 'Employees' })).not.toBeInTheDocument()
-    expect(within(nav).queryByRole('link', { name: 'Customers' })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: 'Product Settings' })).not.toBeInTheDocument()
     expect(within(nav).queryByRole('link', { name: 'Organization' })).not.toBeInTheDocument()
   })
 
@@ -248,6 +265,7 @@ describe('TenantAppShell navigation', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Workspace navigation' })
     expect(within(nav).getByRole('link', { name: 'Products' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Switch apps' })).toHaveTextContent('Shared Records')
 
     await user.click(screen.getByRole('button', { name: 'Switch apps' }))
 
@@ -357,5 +375,7 @@ describe('TenantAppShell navigation', () => {
     expect(isSegmentActive('/acme/records/products', '/acme/records', true)).toBe(false)
     expect(getCurrentNavContext('/acme/inventory-audit', 'acme')).toBe('workspace')
     expect(getCurrentNavContext('/acme/organization/settings', 'acme')).toBe('organization')
+    expect(getCurrentNavContext('/acme/records/products', 'acme')).toBe('shared-records')
+    expect(getCurrentNavContext('/acme/inventory/related/products', 'acme')).toBe('inventory')
   })
 })

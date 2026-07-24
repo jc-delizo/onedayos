@@ -14,6 +14,37 @@ import {
 } from '..'
 
 describe('OneDayOS page patterns', () => {
+  it('renders a compact operational header with one title, breadcrumb, and same-row action container', () => {
+    const { container } = render(
+      <AppPage
+        headerMode="compact"
+        breadcrumb="Inventory / Stock Levels"
+        title="Stock Levels"
+        primaryAction={<Button>Adjust Stock</Button>}
+      >
+        <p>Stock table content</p>
+      </AppPage>,
+    )
+
+    const header = container.querySelector('header[data-page-header-mode="compact"]')
+    expect(header).not.toBeNull()
+    expect(header?.querySelectorAll('h1')).toHaveLength(1)
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Inventory / Stock Levels')
+    expect(within(header as HTMLElement).getByRole('button', { name: 'Adjust Stock' })).toBeInTheDocument()
+    expect(screen.queryByText('Current quantity by Product and Warehouse.')).not.toBeInTheDocument()
+  })
+
+  it('renders explanatory mode with its short description', () => {
+    const { container } = render(
+      <AppPage headerMode="explanatory" title="Inventory Process Flow" description="How Inventory work fits together.">
+        <p>Process content</p>
+      </AppPage>,
+    )
+
+    expect(container.querySelector('header[data-page-header-mode="explanatory"]')).not.toBeNull()
+    expect(screen.getByText('How Inventory work fits together.')).toBeInTheDocument()
+  })
+
   it('AppPage renders breadcrumb, title, description, primary action, and content', () => {
     render(
       <AppPage

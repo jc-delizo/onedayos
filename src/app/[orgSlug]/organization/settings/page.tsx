@@ -33,7 +33,7 @@ export default async function OrganizationSettingsPage({ params }: { params: Pro
     <SettingsPage
       breadcrumb="Organization / Settings"
       title="Settings"
-      description="Configure organization-wide preferences supported by OneDayOS."
+      headerMode="compact"
       contextualHelp="Only supported organization preferences are shown here. Theme appearance remains a personal browser-local preference."
       sections={
         <>

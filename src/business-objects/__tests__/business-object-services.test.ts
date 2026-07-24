@@ -46,17 +46,21 @@ function makePrisma() {
     customer: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
     product: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
     productCategory: {
+      findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
   }
 }
@@ -86,6 +90,68 @@ describe('Business Object services', () => {
         }),
       }),
     )
+  })
+
+  it('returns exact Product totals and stable pages above 100 without loading the full tenant set', async () => {
+    const prisma = makePrisma()
+    const fixtures = Array.from({ length: 155 }, (_, index) => ({
+      id: `product_${String(index + 1).padStart(3, '0')}`,
+      orgId: 'org_a',
+      code: `SKU-${String(index + 1).padStart(3, '0')}`,
+      name: `Product ${String(index + 1).padStart(3, '0')}`,
+      description: index === 139 ? 'scale-needle' : null,
+      categoryId: null,
+      unit: 'pcs',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+      deletedBy: null,
+      category: null,
+    }))
+    prisma.product.findMany.mockImplementation(async (args) => {
+      const query = args as { skip: number; take: number; where: { OR?: Array<Record<string, { contains: string }>> } }
+      const needle = query.where.OR?.map((clause) => Object.values(clause)[0]?.contains).find(Boolean)
+      const matches = needle
+        ? fixtures.filter((row) => `${row.code} ${row.name} ${row.description ?? ''}`.toLowerCase().includes(needle.toLowerCase()))
+        : fixtures
+      return matches.slice(query.skip, query.skip + query.take)
+    })
+    prisma.product.count.mockImplementation(async (args) => {
+      const query = args as { where: { OR?: Array<Record<string, { contains: string }>> } }
+      const needle = query.where.OR?.map((clause) => Object.values(clause)[0]?.contains).find(Boolean)
+      return needle
+        ? fixtures.filter((row) => `${row.code} ${row.name} ${row.description ?? ''}`.toLowerCase().includes(needle.toLowerCase())).length
+        : fixtures.length
+    })
+    mockGetDb.mockReturnValue({ orgId: 'org_a', prisma })
+
+    const pageTwo = await ProductService.listPage(makeCtx('org_a'), {
+      page: 2,
+      pageSize: 50,
+      direction: 'asc',
+    })
+    const pageThree = await ProductService.listPage(makeCtx('org_a'), {
+      page: 3,
+      pageSize: 50,
+      direction: 'asc',
+    })
+    const searchResult = await ProductService.listPage(makeCtx('org_a'), {
+      q: 'scale-needle',
+      page: 1,
+      pageSize: 25,
+      direction: 'asc',
+    })
+
+    expect(pageTwo.meta).toEqual({ page: 2, pageSize: 50, total: 155, totalPages: 4 })
+    expect(pageThree.meta).toEqual({ page: 3, pageSize: 50, total: 155, totalPages: 4 })
+    expect(new Set([...pageTwo.rows, ...pageThree.rows].map((row) => row.id)).size).toBe(100)
+    expect(searchResult.rows.map((row) => row.id)).toEqual(['product_140'])
+    expect(searchResult.meta.total).toBe(1)
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 50, take: 50 }))
+    expect(prisma.product.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ orgId: 'org_a', deletedAt: null }),
+    })
   })
 
   it('prevents Org A from reading Org B records through safe not found behavior', async () => {

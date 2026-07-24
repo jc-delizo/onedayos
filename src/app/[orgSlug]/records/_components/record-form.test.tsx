@@ -109,4 +109,24 @@ describe('Business Object Records UI', () => {
     expect(screen.queryByRole('link', { name: 'New Product' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
   })
+
+  it('keeps shared Products in Inventory context without duplicating the presenter', () => {
+    render(
+      <RecordsListPage
+        orgSlug="acme"
+        area={getRecordArea('products')}
+        context="inventory"
+        rows={[{ id: 'product_a', code: 'WAT-500', name: 'Bottled Water' }]}
+        getRowId={(row) => row.id}
+        columns={[
+          { id: 'code', header: 'Code', cell: (row) => row.code },
+          { id: 'name', header: 'Name', cell: (row) => row.name },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('Inventory / Related Records / Products')).toBeInTheDocument()
+    expect(screen.getByText(/Shared Product identity used by Inventory and other apps/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'New Product' })).toHaveAttribute('href', '/acme/inventory/related/products/new')
+  })
 })

@@ -11,6 +11,7 @@ describe('server env validation', () => {
     vi.stubEnv('NEXT_PHASE', '')
     vi.stubEnv('npm_lifecycle_event', '')
     vi.stubEnv('DATABASE_URL', 'postgresql://postgres:postgres@127.0.0.1:54322/onedayos?schema=public')
+    vi.stubEnv('SUPABASE_SECRET_KEY', '')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'your-supabase-service-role-key')
 
     expect(() => getServerEnv({ allowPlaceholders: false })).toThrow('Production server environment')

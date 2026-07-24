@@ -1,6 +1,7 @@
 import 'server-only'
 import { z } from 'zod'
 import { appUrlSchema, createBooleanEnvSchema, isPlaceholderValue, LOCAL_APP_URL, LOCAL_PRISMA_DATABASE_URL } from './shared'
+import { resolveSupabaseAdminApiKey } from './supabase-admin-key'
 
 const serverEnvSchema = z.strictObject({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -10,6 +11,7 @@ const serverEnvSchema = z.strictObject({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).default('your-supabase-anon-key'),
   DATABASE_URL: z.string().url().default(LOCAL_PRISMA_DATABASE_URL),
   DIRECT_URL: z.string().url().optional(),
+  SUPABASE_SECRET_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional()),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).default('your-supabase-service-role-key'),
   ONEDAYOS_DEMO_MODE: createBooleanEnvSchema(false),
   ONEDAYOS_PUBLIC_REGISTRATION_ENABLED: createBooleanEnvSchema(true),
@@ -27,6 +29,7 @@ function readServerEnvInput() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
     DIRECT_URL: process.env.DIRECT_URL,
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     ONEDAYOS_DEMO_MODE: process.env.ONEDAYOS_DEMO_MODE,
     ONEDAYOS_PUBLIC_REGISTRATION_ENABLED: process.env.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED,
@@ -48,10 +51,18 @@ export function getServerEnv(options: { allowPlaceholders?: boolean } = {}): Ser
   const parsed = serverEnvSchema.parse(readServerEnvInput())
   const allowPlaceholders = options.allowPlaceholders ?? isBuildOrLocalTooling()
 
-  const serverSecretValues = [parsed.DATABASE_URL, parsed.DIRECT_URL, parsed.SUPABASE_SERVICE_ROLE_KEY]
+  const serverSecretValues = [
+    parsed.DATABASE_URL,
+    parsed.DIRECT_URL,
+    parsed.SUPABASE_SECRET_KEY ?? parsed.SUPABASE_SERVICE_ROLE_KEY,
+  ]
 
   if (!allowPlaceholders && serverSecretValues.some((value) => isPlaceholderValue(value))) {
     throw new Error('Production server environment is missing real server-only secrets.')
+  }
+
+  if (!allowPlaceholders) {
+    resolveSupabaseAdminApiKey(parsed)
   }
 
   if (!allowPlaceholders && isPlaceholderValue(parsed.NEXT_PUBLIC_SUPABASE_URL)) {

@@ -46,6 +46,7 @@ export const inventoryUx = {
   relatedBusinessObjects: [
     'Product',
     'ProductCategory',
+    'Customer',
     'Supplier',
     'Warehouse',
   ],
@@ -73,16 +74,16 @@ export const inventoryUx = {
   appNavigation: [
     'Dashboard',
     'Process Flow',
-    'Product Settings',
     'Stock Levels',
     'Stock Movements',
     'Stock Adjustments',
-    'Related Records: Products, Categories, Suppliers, Warehouses',
+    'Related Records: Products, Categories, Customers, Suppliers, Warehouses',
   ],
   pageMap: [
     '/[orgSlug]/inventory - Inventory Dashboard with real tracked, low-stock, warehouse, movement, and adjustment summaries.',
     '/[orgSlug]/inventory/process-flow - Explanation of shared Records, settings, posting, balances, ledger, low-stock detection, and deferred integrations.',
-    '/[orgSlug]/inventory/product-settings - Inventory-specific settings for shared Products.',
+    '/[orgSlug]/inventory/product-settings - Compatibility/contextual surface for Inventory-specific tracking settings; not top-level navigation.',
+    '/[orgSlug]/inventory/related/[area] - Shared Products, Categories, Customers, Suppliers, and Warehouses presented in Inventory context.',
     '/[orgSlug]/inventory/stock-levels - Current StockBalance rows by shared Product and Warehouse.',
     '/[orgSlug]/inventory/stock-movements - Append-only StockMovement ledger.',
     '/[orgSlug]/inventory/stock-adjustments - Posted manual StockAdjustment records.',

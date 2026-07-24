@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { AppWindow, Check, Grid3X3, LogOut, Monitor, Moon, Palette, Sun, User } from 'lucide-react'
+import { AppWindow, Building2, Check, Database, Grid3X3, LogOut, Monitor, Moon, Package, Palette, Sun, User } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
@@ -70,15 +70,22 @@ function NavSection({ section, pathname }: { section: TenantNavSection; pathname
 export function getCurrentNavContext(pathname: string, orgSlug: string): TenantNavContext {
   if (isSegmentActive(pathname, `/${orgSlug}/inventory`)) return 'inventory'
   if (isSegmentActive(pathname, `/${orgSlug}/organization`)) return 'organization'
-  if (isSegmentActive(pathname, `/${orgSlug}/records`)) return 'records'
+  if (isSegmentActive(pathname, `/${orgSlug}/records`)) return 'shared-records'
   return 'workspace'
 }
 
 function currentAppLabel(context: TenantNavContext) {
   if (context === 'inventory') return 'Inventory'
+  if (context === 'shared-records') return 'Shared Records'
   if (context === 'organization') return 'Organization'
   return 'Apps'
 }
+
+const appIcons = {
+  Package,
+  Database,
+  Building2,
+} as const
 
 const appearanceOptions: Array<{ value: AppearancePreference; label: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light', icon: Sun },
@@ -162,24 +169,31 @@ export function TenantAppShell({ model, children }: { model: TenantAppShellModel
                   <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-normal text-[var(--color-subtle)]">
                     Apps
                   </p>
-                {model.apps.map((app) => (
-                  <Link
-                    key={app.id}
-                    href={app.href as never}
-                    aria-label={`${app.label}: ${app.description}`}
-                    role="menuitem"
-                    onClick={() => setAppMenuOpen(false)}
-                    className={cn(
-                      'block rounded-[var(--radius-sm)] border px-2 py-2 text-sm transition-colors hover:bg-[var(--color-accent)] hover:text-[var(--color-accent-foreground)]',
-                      currentContext === app.id
-                        ? 'border-[var(--color-border-strong)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]'
-                        : 'border-transparent text-[var(--color-muted)]',
-                    )}
-                  >
-                    <span className="block font-medium">{app.label}</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-[var(--color-subtle)]">{app.description}</span>
-                  </Link>
-                ))}
+                  {model.apps.map((app) => {
+                    const Icon = appIcons[app.icon]
+
+                    return (
+                      <Link
+                        key={app.id}
+                        href={app.href as never}
+                        aria-label={`${app.label}: ${app.description}`}
+                        role="menuitem"
+                        onClick={() => setAppMenuOpen(false)}
+                        className={cn(
+                          'flex gap-2 rounded-[var(--radius-sm)] border px-2 py-2 text-sm transition-colors hover:bg-[var(--color-accent)] hover:text-[var(--color-accent-foreground)]',
+                          currentContext === app.id
+                            ? 'border-[var(--color-border-strong)] bg-[var(--color-accent)] text-[var(--color-accent-foreground)]'
+                            : 'border-transparent text-[var(--color-muted)]',
+                        )}
+                      >
+                        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                        <span>
+                          <span className="block font-medium">{app.label}</span>
+                          <span className="mt-0.5 block text-xs leading-5 text-[var(--color-subtle)]">{app.description}</span>
+                        </span>
+                      </Link>
+                    )
+                  })}
                 </div>
               ) : null}
             </div>

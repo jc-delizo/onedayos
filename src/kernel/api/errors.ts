@@ -64,6 +64,23 @@ export const apiErrors = {
       'Tenant identity is derived from the authenticated session and route. Do not submit orgId.',
     )
   },
+  exportRowLimit() {
+    return new ApiException(
+      422,
+      'EXPORT_ROW_LIMIT_EXCEEDED',
+      'This export exceeds 10,000 rows. Narrow the current filters or export selected rows.',
+    )
+  },
+  exportSelectionInvalid() {
+    return new ApiException(
+      422,
+      'EXPORT_SELECTION_INVALID',
+      'One or more selected rows are unavailable. Refresh the table and select rows again.',
+    )
+  },
+  exportEmpty() {
+    return new ApiException(422, 'EXPORT_EMPTY', 'No matching rows are available to export.')
+  },
   internal(message = 'Something went wrong.') {
     return new ApiException(500, 'INTERNAL_ERROR', message)
   },

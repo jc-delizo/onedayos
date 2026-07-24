@@ -5,14 +5,16 @@ import { buildTenantAppShellModel } from '@/platform/navigation/tenant-navigatio
 
 export default async function OrgLayout({
   children,
+  modal,
   params,
 }: {
   children: ReactNode
+  modal?: ReactNode
   params: Promise<{ orgSlug: string }>
 }) {
   const { orgSlug } = await params
   const ctx = await sdk.auth.requirePageOrgContext(orgSlug)
   const model = buildTenantAppShellModel(ctx)
 
-  return <TenantAppShell model={model}>{children}</TenantAppShell>
+  return <TenantAppShell model={model}>{children}{modal}</TenantAppShell>
 }

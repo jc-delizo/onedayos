@@ -53,6 +53,7 @@ const REQUIRED_PLATFORM_UX_DOCS = [
   'src/platform/organization/UX-CONFORMANCE.md',
   'src/business-objects/UX-CONFORMANCE.md',
   'docs/engineering-manual/03-design-system/IMPLEMENTATION-NOTE-organization-records-ux-retrofit.md',
+  'docs/engineering-manual/16-client-delivery/IMPLEMENTATION-NOTE-v2-1-compact-header-shared-records-ia.md',
 ] as const
 
 const REQUIRED_ROLE_BASED_UX_VALIDATION_DOCS = [
@@ -325,8 +326,388 @@ function checkInventoryPatternAdoption(root: string, routeRoot: string, findings
     }
   }
 
-  if (formSource && !formSource.includes('FormPage')) {
+  if (formSource && !formSource.includes('FormPage') && !formSource.includes('StockAdjustmentCreatePresenter')) {
     addFinding(findings, root, join(routeRoot, 'stock-adjustments/new/page.tsx'), 'inventory-form-pattern', 'Inventory adjustment form page must use FormPage.')
+  }
+}
+
+function checkDataTableV2(root: string, findings: UxFinding[]) {
+  const packageSource = readIfExists(join(root, 'package.json')) ?? ''
+  if (!packageSource.includes('"@tanstack/react-table"')) return
+
+  const required = [
+    'src/components/onedayos/data-table/data-table-v2.tsx',
+    'src/app/[orgSlug]/inventory/_components/inventory-data-tables.tsx',
+    'src/app/[orgSlug]/records/_components/records-data-table.tsx',
+    'src/app/[orgSlug]/organization/_components/organization-data-tables.tsx',
+  ]
+  for (const path of required) {
+    const source = readIfExists(join(root, path))
+    if (!source?.includes('DataTableV2') && !source?.includes('data-data-table-v2')) {
+      addFinding(findings, root, join(root, path), 'missing-data-table-v2', 'Production operational lists must use the shared Data Table V2 contract.')
+    }
+  }
+
+  const tableSource = readIfExists(join(root, required[0])) ?? ''
+  for (const requiredText of ['@tanstack/react-table', 'manualPagination', 'onKeyDown', 'localStorage', 'data-data-table-v2']) {
+    if (!tableSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, required[0]), 'incomplete-data-table-v2-contract', `Data Table V2 is missing: ${requiredText}.`)
+    }
+  }
+
+  const prompt38 = readIfExists(join(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_38_V2_3_URL_ADDRESSABLE_MODALS.md'))
+  const prompt41 = readIfExists(join(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_41_V2_4_DASHBOARD_CHARTS_PROCESS_FLOW.md'))
+  const prompt43 = readIfExists(join(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_43_V2_5_BOUNDED_TABLE_EXPORT.md'))
+  const forbiddenDependencies = [
+    ...(prompt38 ? [] : ['@radix-ui/react-dialog']),
+    ...(prompt41 ? [] : ['recharts']),
+    ...(prompt43 ? [] : ['exceljs']),
+  ]
+  for (const forbiddenDependency of forbiddenDependencies) {
+    if (packageSource.includes(`"${forbiddenDependency}"`)) {
+      addFinding(findings, root, join(root, 'package.json'), 'premature-v2-dependency', `${forbiddenDependency} is not authorized by the current V2 package.`)
+    }
+  }
+
+  const inventoryTableSource = readIfExists(join(root, required[1])) ?? ''
+  if (!inventoryTableSource.includes('Adjust Stock') || !inventoryTableSource.includes('productId=') || !inventoryTableSource.includes('warehouseId=')) {
+    addFinding(findings, root, join(root, required[1]), 'missing-stock-adjust-contract', 'Stock Levels must expose permission-aware validated adjustment prefill.')
+  }
+  if (!prompt43 && /\bExport\b/.test(tableSource + inventoryTableSource)) {
+    addFinding(findings, root, join(root, required[0]), 'premature-table-export', 'Export remains blocked until V2-5.')
+  }
+
+  const prompt37 = readIfExists(join(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_37_V2_2_ACCEPTANCE_SCALE_HARDENING.md'))
+  if (!prompt37) return
+
+  const acceptancePath = 'docs/engineering-manual/00-meta/V2-2-ACCEPTANCE-REPORT.md'
+  const acceptanceSource = readIfExists(join(root, acceptancePath))
+  if (!acceptanceSource) {
+    addFinding(findings, root, join(root, acceptancePath), 'missing-v2-2-acceptance-report', 'Prompt 37 requires the V2-2 acceptance report.')
+  } else {
+    for (const requiredText of ['Production Table Mode Inventory', 'Stock Status Filter Correctness', 'V2-3 remains blocked', 'Website asset production remains paused']) {
+      if (!acceptanceSource.includes(requiredText)) {
+        addFinding(findings, root, join(root, acceptancePath), 'incomplete-v2-2-acceptance-report', `V2-2 acceptance evidence is missing: ${requiredText}.`)
+      }
+    }
+  }
+
+  for (const path of required.slice(1)) {
+    const source = readIfExists(join(root, path)) ?? ''
+    if (source.includes('mode="client"')) {
+      addFinding(findings, root, join(root, path), 'growth-table-client-mode', 'Prompt 37 growth and production tables must use server mode.')
+    }
+  }
+
+  const inventoryServicePath = 'src/modules/inventory/service.ts'
+  const inventoryService = readIfExists(join(root, inventoryServicePath)) ?? ''
+  for (const forbiddenText of ['candidateTotal', 'allRows.slice(', 'limited to 100 candidate', 'total: allRows.length']) {
+    if (inventoryService.includes(forbiddenText)) {
+      addFinding(findings, root, join(root, inventoryServicePath), 'stock-status-candidate-cap', `Stock Status must not use partial candidate logic: ${forbiddenText}.`)
+    }
+  }
+
+  const stockSchemaPath = 'src/modules/inventory/schema.ts'
+  const stockSchema = readIfExists(join(root, stockSchemaPath)) ?? ''
+  if (stockSchema.includes("status: z.enum(['in_stock'") || stockSchema.includes('lowStockOnly:')) {
+    addFinding(findings, root, join(root, stockSchemaPath), 'inexact-stock-status-query', 'The deferred Stock Status filter must remain rejected until an exact query is approved.')
+  }
+
+  const presenterPath = 'src/app/[orgSlug]/records/_components/shared-record-pages.tsx'
+  const presenterSource = readIfExists(join(root, presenterPath)) ?? ''
+  if (presenterSource.includes('.list(ctx, {})') || !presenterSource.includes('.listPage(ctx, query)')) {
+    addFinding(findings, root, join(root, presenterPath), 'unbounded-shared-record-list', 'Shared Records presenters must use exact server page services.')
+  }
+
+  for (const path of [
+    'src/app/[orgSlug]/organization/people/page.tsx',
+    'src/app/[orgSlug]/organization/branches-departments/page.tsx',
+  ]) {
+    if ((readIfExists(join(root, path)) ?? '').includes('.findMany(')) {
+      addFinding(findings, root, join(root, path), 'unbounded-organization-list', 'Organization production pages must query through the bounded server table service.')
+    }
+  }
+
+  for (const path of [
+    'src/app/api/orgs/[orgSlug]/inventory/stock-levels/route.ts',
+    'src/app/api/orgs/[orgSlug]/inventory/stock-movements/route.ts',
+    'src/app/api/orgs/[orgSlug]/inventory/stock-adjustments/route.ts',
+  ]) {
+    const source = readIfExists(join(root, path)) ?? ''
+    if (source.includes('total: 0') || !source.includes('result.meta')) {
+      addFinding(findings, root, join(root, path), 'inaccurate-list-api-meta', 'Inventory list APIs must return truthful service pagination metadata.')
+    }
+  }
+}
+
+function checkDashboardChartsV2(root: string, findings: UxFinding[]) {
+  const packageSource = readIfExists(join(root, 'package.json')) ?? ''
+  if (!packageSource.includes('"recharts"')) return
+
+  let packageJson: { dependencies?: Record<string, string> } = {}
+  try {
+    packageJson = JSON.parse(packageSource) as { dependencies?: Record<string, string> }
+  } catch {
+    addFinding(findings, root, join(root, 'package.json'), 'invalid-package-json', 'package.json must remain valid JSON.')
+  }
+
+  if (packageJson.dependencies?.recharts !== '3.10.0') {
+    addFinding(findings, root, join(root, 'package.json'), 'invalid-recharts-version', 'V2-4 requires exact stable recharts@3.10.0.')
+  }
+
+  const prompt43 = readIfExists(join(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_43_V2_5_BOUNDED_TABLE_EXPORT.md'))
+  for (const forbiddenDependency of [
+    ...(prompt43 ? [] : ['exceljs']),
+    'chart.js',
+    'echarts',
+    '@nivo/core',
+    'victory',
+    'reactflow',
+    'react-flow-renderer',
+    'mermaid',
+  ]) {
+    if (packageJson.dependencies?.[forbiddenDependency]) {
+      addFinding(findings, root, join(root, 'package.json'), 'forbidden-v2-4-visual-dependency', `V2-4 must not add ${forbiddenDependency}.`)
+    }
+  }
+
+  const requiredPaths = [
+    'src/components/onedayos/charts/chart-container.tsx',
+    'src/components/onedayos/charts/chart-data-table.tsx',
+    'src/components/onedayos/charts/chart-tooltip.tsx',
+    'src/components/onedayos/charts/chart-states.tsx',
+    'src/app/[orgSlug]/inventory/_components/inventory-dashboard-charts.tsx',
+    'src/components/onedayos/patterns/process-flow-diagram.tsx',
+  ]
+  for (const path of requiredPaths) {
+    if (!readIfExists(join(root, path))) {
+      addFinding(findings, root, join(root, path), 'missing-v2-4-visual-contract', 'V2-4 requires the shared chart layer, Dashboard presenter, and Process Flow diagram.')
+    }
+  }
+
+  const chartRoot = join(root, 'src/components/onedayos/charts')
+  const chartWrapperSource = existsSync(chartRoot)
+    ? readdirSync(chartRoot)
+      .filter((entry) => /\.(?:ts|tsx)$/.test(entry))
+      .map((entry) => readIfExists(join(chartRoot, entry)) ?? '')
+      .join('\n')
+    : ''
+  for (const forbiddenText of ['fetch(', 'PlatformContext', 'orgId', '@/sdk/server', '@prisma/client']) {
+    if (chartWrapperSource.includes(forbiddenText)) {
+      addFinding(findings, root, chartRoot, 'chart-wrapper-business-boundary', `The chart wrapper must not own data or tenant concerns: ${forbiddenText}.`)
+    }
+  }
+
+  const presenterPath = 'src/app/[orgSlug]/inventory/_components/inventory-dashboard-charts.tsx'
+  const presenterSource = readIfExists(join(root, presenterPath)) ?? ''
+  for (const requiredText of [
+    "from 'recharts'",
+    'ChartContainer',
+    'ChartDataTable',
+    'StockHealthChart',
+    'MovementTrendChart',
+    'WarehouseStockChart',
+    'isAnimationActive={false}',
+    'var(--chart-positive)',
+    'var(--chart-warning)',
+    'Unique tracked Products by organization-wide stock status.',
+    'Warehouse Stock Positions',
+    'Tracked Product positions by Warehouse.',
+    'unit="product positions"',
+  ]) {
+    if (!presenterSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, presenterPath), 'incomplete-dashboard-chart-presenter', `Dashboard chart presenter is missing: ${requiredText}.`)
+    }
+  }
+  if (/#[0-9a-f]{3,8}\b/i.test(presenterSource) || presenterSource.includes('fetch(') || presenterSource.includes('orgId')) {
+    addFinding(findings, root, join(root, presenterPath), 'unsafe-dashboard-chart-presenter', 'Chart presenters must use semantic tokens and serializable server data without fetching or tenant identity.')
+  }
+  if (presenterSource.includes('Tracked Products by Warehouse') || presenterSource.includes('unit="products"')) {
+    addFinding(
+      findings,
+      root,
+      join(root, presenterPath),
+      'ambiguous-dashboard-warehouse-unit',
+      'Warehouse analytics must use the explicit Product-position unit rather than implying unique Products.',
+    )
+  }
+
+  const globalsSource = readIfExists(join(root, 'src/app/globals.css')) ?? ''
+  for (const token of ['--chart-primary', '--chart-secondary', '--chart-positive', '--chart-negative', '--chart-warning', '--chart-neutral']) {
+    if ((globalsSource.match(new RegExp(`${token}:`, 'g')) ?? []).length < 2) {
+      addFinding(findings, root, join(root, 'src/app/globals.css'), 'missing-chart-token', `Chart token must exist in Light and Dark maps: ${token}.`)
+    }
+  }
+
+  const servicePath = 'src/modules/inventory/service.ts'
+  const serviceSource = readIfExists(join(root, servicePath)) ?? ''
+  for (const requiredText of [
+    'getDashboard(',
+    'DASHBOARD_READ',
+    'buildMovementTrend',
+    'buildDashboardStockSummary',
+    'assertDashboardAggregationCapacity',
+    'DASHBOARD_AGGREGATION_MAX_CANDIDATES',
+    'activeProductWhere(ctx)',
+    'activeWarehouseWhere(ctx)',
+  ]) {
+    if (!serviceSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, servicePath), 'incomplete-dashboard-aggregation', `Dashboard aggregation is missing: ${requiredText}.`)
+    }
+  }
+  if (/unstable_cache|cacheTag|cacheLife|revalidateTag/.test(serviceSource)) {
+    addFinding(findings, root, join(root, servicePath), 'premature-dashboard-cache', 'Dashboard caching remains blocked until V2-7.')
+  }
+
+  const dashboardTestSource = readIfExists(join(root, 'src/modules/inventory/__tests__/dashboard.test.ts')) ?? ''
+  for (const requiredText of [
+    'stockHealth.reduce',
+    'includes both range boundaries',
+    'month boundary',
+    'year boundary',
+    'leap-day boundary',
+    'fails safely before returning partial Dashboard data',
+  ]) {
+    if (!dashboardTestSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, 'src/modules/inventory/__tests__/dashboard.test.ts'), 'missing-dashboard-consistency-test', `Dashboard hardening evidence is missing: ${requiredText}.`)
+    }
+  }
+
+  const resetSource = readIfExists(join(root, 'scripts/reset-sandbox-demo.ts')) ?? ''
+  for (const requiredText of [
+    'buildCanonicalDemoActivity',
+    'tx.stockAdjustment.create',
+    'tx.stockMovement.create',
+    'occurredAt: activity.occurredAt',
+    'code: { notIn: CANONICAL_DEMO_PRODUCTS.map',
+  ]) {
+    if (!resetSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, 'scripts/reset-sandbox-demo.ts'), 'incomplete-canonical-dashboard-activity', `Controlled-demo analytics hardening is missing: ${requiredText}.`)
+    }
+  }
+
+  const processDefinitionPath = 'src/modules/inventory/process-flow.ts'
+  const processDefinition = readIfExists(join(root, processDefinitionPath)) ?? ''
+  for (const requiredText of ['connections:', 'plannedSteps:', 'plannedLabel:', "'Receipts'", "'Issues'", "'Transfers'"]) {
+    if (!processDefinition.includes(requiredText)) {
+      addFinding(findings, root, join(root, processDefinitionPath), 'incomplete-process-flow-v2-definition', `Canonical Process Flow is missing: ${requiredText}.`)
+    }
+  }
+
+  const processPagePath = 'src/components/onedayos/patterns/process-flow-page.tsx'
+  const processPage = readIfExists(join(root, processPagePath)) ?? ''
+  const diagramSource = readIfExists(join(root, 'src/components/onedayos/patterns/process-flow-diagram.tsx')) ?? ''
+  for (const requiredText of ['ProcessFlowDiagram', 'data-semantic-process-fallback', 'data-planned-workflows']) {
+    if (!processPage.includes(requiredText)) {
+      addFinding(findings, root, join(root, processPagePath), 'incomplete-process-flow-v2-page', `Process Flow page is missing: ${requiredText}.`)
+    }
+  }
+  for (const requiredText of ['definition.connections', 'aria-hidden="true"', 'data-mobile-layout="vertical"']) {
+    if (!diagramSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, 'src/components/onedayos/patterns/process-flow-diagram.tsx'), 'incomplete-process-flow-v2-diagram', `Process Flow diagram is missing: ${requiredText}.`)
+    }
+  }
+  if (/reactflow|react-flow|mermaid/i.test(diagramSource + processPage)) {
+    addFinding(findings, root, join(root, 'src/components/onedayos/patterns/process-flow-diagram.tsx'), 'forbidden-diagram-engine', 'Process Flow V2 must use semantic HTML, CSS, and local SVG only.')
+  }
+}
+
+function checkBoundedTableExport(root: string, findings: UxFinding[]) {
+  const prompt43 = readIfExists(join(root, 'docs/engineering-manual/prompts/CODEX_PROMPT_43_V2_5_BOUNDED_TABLE_EXPORT.md'))
+  if (!prompt43) return
+
+  const packageSource = readIfExists(join(root, 'package.json')) ?? ''
+  let packageJson: {
+    dependencies?: Record<string, string>
+    overrides?: Record<string, unknown>
+  } = {}
+  try {
+    packageJson = JSON.parse(packageSource)
+  } catch {
+    return
+  }
+  if (packageJson.dependencies?.exceljs !== '4.4.0') {
+    addFinding(findings, root, join(root, 'package.json'), 'invalid-exceljs-version', 'V2-5 requires exact exceljs@4.4.0.')
+  }
+  const excelOverride = packageJson.overrides?.exceljs as { uuid?: string } | undefined
+  if (excelOverride?.uuid !== '11.1.1') {
+    addFinding(findings, root, join(root, 'package.json'), 'missing-exceljs-uuid-override', 'ExcelJS must use only the scoped uuid@11.1.1 override.')
+  }
+  if (packageJson.overrides?.uuid) {
+    addFinding(findings, root, join(root, 'package.json'), 'global-uuid-override', 'V2-5 forbids a global UUID override.')
+  }
+
+  for (const path of [
+    'src/platform/table-export/schema.ts',
+    'src/platform/table-export/spreadsheet-safety.ts',
+    'src/platform/table-export/csv-exporter.ts',
+    'src/platform/table-export/xlsx-exporter.ts',
+    'src/platform/table-export/resources.ts',
+    'src/platform/table-export/__tests__/table-export.test.ts',
+  ]) {
+    if (!readIfExists(join(root, path))) {
+      addFinding(findings, root, join(root, path), 'missing-bounded-export-contract', `V2-5 requires ${path}.`)
+    }
+  }
+
+  const xlsxSource = readIfExists(join(root, 'src/platform/table-export/xlsx-exporter.ts')) ?? ''
+  if (!xlsxSource.includes("import 'server-only'") || !xlsxSource.includes("from 'exceljs'")) {
+    addFinding(findings, root, join(root, 'src/platform/table-export/xlsx-exporter.ts'), 'unsafe-exceljs-boundary', 'ExcelJS must remain behind the server-only XLSX adapter.')
+  }
+  const tableSource = readIfExists(join(root, 'src/components/onedayos/data-table/data-table-v2.tsx')) ?? ''
+  if (tableSource.includes("from 'exceljs'") || tableSource.includes("require('exceljs')")) {
+    addFinding(findings, root, join(root, 'src/components/onedayos/data-table/data-table-v2.tsx'), 'client-side-exceljs', 'Client components must not import ExcelJS.')
+  }
+  const schemaSource = readIfExists(join(root, 'src/platform/table-export/schema.ts')) ?? ''
+  for (const requiredText of ['MAX_FILTERED_EXPORT_ROWS = 10_000', 'MAX_SELECTED_EXPORT_IDS = 1_000']) {
+    if (!schemaSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, 'src/platform/table-export/schema.ts'), 'missing-export-limit', `V2-5 requires ${requiredText}.`)
+    }
+  }
+  const demoSource = readIfExists(join(root, 'scripts/demo-ops.ts')) ?? ''
+  if (demoSource.includes('STOCK_LEVEL_EXPORT') || demoSource.includes("action: 'export'")) {
+    addFinding(findings, root, join(root, 'scripts/demo-ops.ts'), 'warehouse-export-grant', 'Warehouse Operator must not receive export permission.')
+  }
+}
+
+function checkRouteModalV2(root: string, findings: UxFinding[]) {
+  const packageSource = readIfExists(join(root, 'package.json')) ?? ''
+  if (!packageSource.includes('"@radix-ui/react-dialog"')) return
+
+  const requiredPaths = [
+    'src/components/onedayos/modal/route-modal.tsx',
+    'src/app/[orgSlug]/@modal/default.tsx',
+    'src/app/[orgSlug]/@modal/(.)inventory/stock-adjustments/new/page.tsx',
+    'src/app/[orgSlug]/@modal/(.)inventory/stock-levels/[id]/page.tsx',
+    'src/app/[orgSlug]/@modal/(.)inventory/stock-movements/[id]/page.tsx',
+    'src/app/[orgSlug]/@modal/(.)inventory/stock-adjustments/[id]/page.tsx',
+    'src/app/[orgSlug]/@modal/(.)records/[area]/[id]/page.tsx',
+    'src/app/[orgSlug]/@modal/(.)records/[area]/[id]/edit/page.tsx',
+    'src/app/[orgSlug]/@modal/(.)records/[area]/new/page.tsx',
+  ]
+  for (const path of requiredPaths) {
+    if (!readIfExists(join(root, path))) {
+      addFinding(findings, root, join(root, path), 'missing-route-modal-contract', 'V2-3 requires the approved modal primitive, slot, and intercepted targets.')
+    }
+  }
+
+  const modalSource = readIfExists(join(root, requiredPaths[0])) ?? ''
+  for (const requiredText of ['@radix-ui/react-dialog', 'Dialog.Title', 'Dialog.Description', 'requestClose', 'markDirty', 'beforeunload', 'popstate']) {
+    if (!modalSource.includes(requiredText)) {
+      addFinding(findings, root, join(root, requiredPaths[0]), 'incomplete-route-modal-contract', `Route modal is missing: ${requiredText}.`)
+    }
+  }
+
+  const defaultSource = readIfExists(join(root, requiredPaths[1])) ?? ''
+  if (!defaultSource.includes('return null')) {
+    addFinding(findings, root, join(root, requiredPaths[1]), 'invalid-modal-slot-default', 'The unmatched modal slot must return null.')
+  }
+
+  for (const path of requiredPaths.slice(2)) {
+    const source = readIfExists(join(root, path)) ?? ''
+    if (!source.includes('Presenter') || /InventoryService|ProductService|CustomerService|SupplierService|WarehouseService/.test(source)) {
+      addFinding(findings, root, join(root, path), 'duplicated-modal-business-logic', 'Intercept routes must reuse canonical presenters without direct business services.')
+    }
   }
 }
 
@@ -826,7 +1207,7 @@ function checkPlatformSurfaceUx(root: string, findings: UxFinding[]) {
     findings,
     root,
     'src/app/[orgSlug]/records/page.tsx',
-    "area.id !== 'employees'",
+    "area.id === 'employees'",
     'records-landing-promotes-people',
     'Records landing should not promote Employees beside shared Inventory-supporting records.',
   )
@@ -834,9 +1215,9 @@ function checkPlatformSurfaceUx(root: string, findings: UxFinding[]) {
     findings,
     root,
     'src/app/[orgSlug]/records/page.tsx',
-    'Records are not an app',
-    'records-treated-as-app',
-    'Records landing must state that Records are not an app.',
+    'sdk.permissions.can',
+    'records-landing-permission-awareness',
+    'Shared Records landing must filter areas through existing permissions.',
   )
 
   const recordsConfigPath = join(root, 'src/app/[orgSlug]/records/_components/records-config.ts')
@@ -862,26 +1243,40 @@ function checkPlatformSurfaceUx(root: string, findings: UxFinding[]) {
     }
   }
 
-  const appLauncherSource = readIfExists(join(root, 'src/app/[orgSlug]/apps/app-launcher.tsx'))
-  if (appLauncherSource?.includes('Open Records')) {
-    addFinding(
-      findings,
-      root,
-      join(root, 'src/app/[orgSlug]/apps/app-launcher.tsx'),
-      'records-shown-as-app',
-      'Records must not be shown as an app in the app launcher.',
-    )
-  }
+  requireSourceIncludes(
+    findings,
+    root,
+    'src/app/[orgSlug]/apps/app-launcher.tsx',
+    'Shared Records',
+    'missing-shared-records-app',
+    'Shared Records must be available as a built-in app.',
+  )
+  requireSourceIncludes(
+    findings,
+    root,
+    'src/components/onedayos/page-header.tsx',
+    "export type PageHeaderMode = 'compact' | 'explanatory'",
+    'missing-page-header-modes',
+    'The page header must expose compact and explanatory modes.',
+  )
+  requireSourceIncludes(
+    findings,
+    root,
+    'src/components/onedayos/patterns/process-flow-page.tsx',
+    'headerMode="explanatory"',
+    'process-flow-header-mode',
+    'Process Flow must preserve the explanatory header.',
+  )
 
   const navigationSource = readIfExists(join(root, 'src/platform/navigation/tenant-navigation.ts'))
   if (navigationSource) {
-    if (/id:\s*['"]records['"]\s+as\s+const|label:\s*['"]Records['"][\s\S]{0,180}description:/.test(navigationSource)) {
+    if (!/id:\s*['"]shared-records['"]\s+as\s+const/.test(navigationSource) || !navigationSource.includes('allSharedRecords.length > 0')) {
       addFinding(
         findings,
         root,
         join(root, 'src/platform/navigation/tenant-navigation.ts'),
-        'records-shown-as-app',
-        'Records must not appear as an app-switcher app.',
+        'invalid-shared-records-app',
+        'Shared Records must be a permission-derived built-in app.',
       )
     }
 
@@ -898,15 +1293,74 @@ function checkPlatformSurfaceUx(root: string, findings: UxFinding[]) {
     const relatedRecordsMatch = navigationSource.match(/const relatedInventoryRecords = \[([\s\S]*?)\]\.filter/)
     const relatedRecordsSource = relatedRecordsMatch?.[1] ?? ''
 
-    if (/Employees|People|Customers/.test(relatedRecordsSource)) {
+    if (/Employees|People/.test(relatedRecordsSource) || !/Customers/.test(relatedRecordsSource)) {
       addFinding(
         findings,
         root,
         join(root, 'src/platform/navigation/tenant-navigation.ts'),
         'inventory-sidebar-platform-record-leak',
-        'Inventory related Records navigation must not include People, Employees, or Customers.',
+        'Inventory Related Records must include Customers and exclude People and Employees.',
       )
     }
+
+    if (!relatedRecordsSource.includes('/inventory/related/')) {
+      addFinding(
+        findings,
+        root,
+        join(root, 'src/platform/navigation/tenant-navigation.ts'),
+        'inventory-related-record-context-loss',
+        'Inventory Related Records links must use Inventory-context routes.',
+      )
+    }
+
+    if (navigationSource.includes('inventory-product-settings')) {
+      addFinding(
+        findings,
+        root,
+        join(root, 'src/platform/navigation/tenant-navigation.ts'),
+        'product-settings-top-level-navigation',
+        'Product Settings must not remain in top-level Inventory navigation.',
+      )
+    }
+  }
+
+  requireSourceIncludes(
+    findings,
+    root,
+    'src/components/onedayos/app-shell.tsx',
+    "return 'shared-records'",
+    'records-current-app-context',
+    'Direct Records routes must resolve the Shared Records app context.',
+  )
+  requireSourceIncludes(
+    findings,
+    root,
+    'src/app/[orgSlug]/inventory/product-settings/page.tsx',
+    'Inventory Tracking Settings',
+    'missing-product-settings-compatibility',
+    'Inventory tracking settings must remain available through the compatibility surface.',
+  )
+
+  const moduleNavigationSource = readIfExists(join(root, 'src/modules/inventory/navigation.ts'))
+  if (moduleNavigationSource?.includes('inventory.product-settings')) {
+    addFinding(
+      findings,
+      root,
+      join(root, 'src/modules/inventory/navigation.ts'),
+      'product-settings-module-navigation',
+      'Product Settings must be removed from Inventory module navigation metadata.',
+    )
+  }
+
+  const v21Note = readIfExists(join(root, 'docs/engineering-manual/16-client-delivery/IMPLEMENTATION-NOTE-v2-1-compact-header-shared-records-ia.md'))
+  if (v21Note && !v21Note.includes('website asset production remains paused')) {
+    addFinding(
+      findings,
+      root,
+      join(root, 'docs/engineering-manual/16-client-delivery/IMPLEMENTATION-NOTE-v2-1-compact-header-shared-records-ia.md'),
+      'website-asset-pause-missing',
+      'V2-1 must preserve the website asset production pause.',
+    )
   }
 
   checkPlatformRouteSources(root, findings)
@@ -1173,6 +1627,10 @@ export function checkUx(root: string): UxFinding[] {
   }
 
   checkSharedPatternSources(root, findings)
+  checkDataTableV2(root, findings)
+  checkRouteModalV2(root, findings)
+  checkDashboardChartsV2(root, findings)
+  checkBoundedTableExport(root, findings)
   checkRuntimeAppearance(root, findings)
   checkPlatformSurfaceUx(root, findings)
   checkRoleBasedUxValidationPreparation(root, findings)

@@ -67,6 +67,13 @@ export const ProductService = createBusinessObjectService<CreateProductInput, Up
   eventIdField: 'productId',
   searchFields: ['code', 'name', 'description', 'unit'],
   orderBy: { name: 'asc' },
+  listArgs: {
+    include: {
+      category: {
+        select: { name: true },
+      },
+    },
+  },
   async createData(input, ctx, prisma) {
     await validateCategoryReference(ctx, prisma, input.categoryId)
 
@@ -110,6 +117,13 @@ export const ProductCategoryService = createBusinessObjectService<
   eventIdField: 'productCategoryId',
   searchFields: ['name'],
   orderBy: { name: 'asc' },
+  listArgs: {
+    include: {
+      parent: {
+        select: { name: true },
+      },
+    },
+  },
   async createData(input, ctx, prisma) {
     await validateParentCategoryReference(ctx, prisma, input.parentId)
 

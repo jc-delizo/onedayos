@@ -8,22 +8,24 @@ export const inventoryProcessFlow = {
     {
       id: 'shared-records-setup',
       number: 1,
-      title: 'Shared Records Setup',
+      title: 'Shared Records',
       description:
-        'Products, categories, suppliers, and warehouses are created as shared Records before Inventory uses them.',
-      inputs: ['Shared Product records', 'Shared Warehouse records', 'Optional shared Supplier records'],
-      outputs: ['Reusable business identities that Inventory can reference'],
+        'Products and Warehouses are created as shared Records before Inventory references them.',
+      inputs: ['Shared Product records', 'Shared Warehouse records'],
+      outputs: ['Reusable Product and Warehouse identities'],
       warning: 'Inventory does not own Product, ProductCategory, Warehouse, or Supplier identity.',
+      status: 'current',
     },
     {
       id: 'inventory-product-settings',
       number: 2,
-      title: 'Inventory Product Settings',
+      title: 'Inventory Tracking Settings',
       description:
         'Inventory extends shared Products with stock tracking and reorder point settings stored in InventoryProductExtension.',
       inputs: ['Shared Product', 'Stock tracking setting', 'Reorder point'],
       outputs: ['InventoryProductExtension for the shared Product'],
       warning: 'Inventory settings must not duplicate Product code, name, unit, category, or Supplier identity.',
+      status: 'current',
     },
     {
       id: 'stock-adjustment',
@@ -34,6 +36,7 @@ export const inventoryProcessFlow = {
       inputs: ['Product', 'Warehouse', 'New quantity', 'Reason', 'Optional notes'],
       outputs: ['Validated stock adjustment intent'],
       warning: 'Client-computed previous quantity, new quantity, and balance-after values are not accepted as source of truth.',
+      status: 'current',
     },
     {
       id: 'transactional-posting',
@@ -44,6 +47,7 @@ export const inventoryProcessFlow = {
       inputs: ['Validated Product and Warehouse', 'Server-computed quantity delta', 'Posting user'],
       outputs: ['StockAdjustment', 'StockMovement', 'StockBalance update or creation'],
       warning: 'If any persistence step fails, no adjustment, movement, balance update, or success event should remain.',
+      status: 'current',
     },
     {
       id: 'stock-balance',
@@ -54,6 +58,7 @@ export const inventoryProcessFlow = {
       inputs: ['Successful posting transaction'],
       outputs: ['Current quantity by shared Product and Warehouse'],
       warning: 'StockBalance is not directly edited by users.',
+      status: 'current',
     },
     {
       id: 'stock-movement-ledger',
@@ -64,6 +69,7 @@ export const inventoryProcessFlow = {
       inputs: ['Successful posting transaction'],
       outputs: ['Immutable stock movement entry with resulting quantity and source reference'],
       warning: 'Movements are not normal editable records in this MVP.',
+      status: 'current',
     },
     {
       id: 'low-stock-detection',
@@ -74,16 +80,36 @@ export const inventoryProcessFlow = {
       inputs: ['StockBalance quantity', 'InventoryProductExtension reorder point'],
       outputs: ['Low-stock visual and text status'],
       warning: 'No Notification Service exists in this MVP; low stock is a visible status and event only.',
+      status: 'current',
+    },
+  ],
+  connections: [
+    { from: 'shared-records-setup', to: 'inventory-product-settings' },
+    { from: 'inventory-product-settings', to: 'stock-adjustment' },
+    { from: 'stock-adjustment', to: 'transactional-posting' },
+    { from: 'transactional-posting', to: 'stock-balance', label: 'updates together' },
+    { from: 'transactional-posting', to: 'stock-movement-ledger', label: 'appends together' },
+    { from: 'stock-movement-ledger', to: 'low-stock-detection' },
+  ],
+  plannedLabel: 'Planned for Inventory V2 — not implemented in the current demo',
+  plannedSteps: [
+    {
+      id: 'planned-receipts',
+      title: 'Receipts',
+      description: 'Planned inbound stock workflow referencing a shared Supplier and destination Warehouse.',
+      status: 'planned',
     },
     {
-      id: 'future-integrations',
-      number: 8,
-      title: 'Future Integrations',
-      description:
-        'Purchasing, sales, notifications, reporting, import/export, and background automation can connect later through approved packages.',
-      inputs: ['Approved future module or Platform Service package'],
-      outputs: ['Deferred integration path, not current behavior'],
-      warning: 'This Process Flow explains current Inventory behavior and does not implement workflow automation.',
+      id: 'planned-issues',
+      title: 'Issues',
+      description: 'Planned outbound stock workflow with an optional shared Customer reference.',
+      status: 'planned',
+    },
+    {
+      id: 'planned-transfers',
+      title: 'Transfers',
+      description: 'Planned paired movement between source and destination Warehouses.',
+      status: 'planned',
     },
   ],
   owns: [
@@ -104,14 +130,12 @@ export const inventoryProcessFlow = {
     'Inventory supports manual stock adjustments, current stock levels, product stock settings, movement history, and low-stock visual status.',
     'Inventory does not create or own Product, ProductCategory, Supplier, Warehouse, Customer, or Employee identity.',
     'Inventory does not directly edit StockBalance or StockMovement through normal UI routes.',
-    'Inventory does not implement purchasing receipts, sales outbound posting, transfers, approvals, notifications, attachments, comments, reporting, search, or background jobs.',
+    'Inventory does not yet implement Receipts, Issues, Transfers, purchasing, sales, approvals, notifications, accounting, or background jobs.',
   ],
   futureIntegrations: [
-    'Purchasing receipts can later create inbound StockMovements.',
-    'Sales or fulfillment can later create outbound StockMovements.',
-    'Notification Service can later subscribe to low-stock events.',
-    'Reporting Service can later summarize inventory trends.',
-    'Import/Export Engine can later support controlled bulk setup.',
-    'Background jobs can be considered only when real volume requires them.',
+    'Purchasing may later provide source documents for approved Receipt workflows.',
+    'Sales or fulfillment may later provide source documents for approved Issue workflows.',
+    'Notifications may later subscribe to low-stock events.',
+    'These are future integration directions, not active modules or current demo behavior.',
   ],
 } as const satisfies ProcessFlowDefinition

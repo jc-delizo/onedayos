@@ -1,7 +1,15 @@
 import { z } from 'zod'
-import { listQuerySchema, optionalDate, optionalEmail, optionalText, requiredText } from '../shared/schema'
+import { createTableQuerySchema } from '@/components/onedayos/data-table/query-schema'
+import { optionalDate, optionalEmail, optionalText, requiredText } from '../shared/schema'
 
-export const employeeListQuerySchema = listQuerySchema
+export const employeeListQuerySchema = createTableQuerySchema(
+  ['name', 'employeeNo'],
+  {
+    branchId: optionalText(128),
+    departmentId: optionalText(128),
+    employmentStatus: optionalText(40),
+  },
+)
 
 export const createEmployeeSchema = z.strictObject({
   employeeNo: requiredText(64),

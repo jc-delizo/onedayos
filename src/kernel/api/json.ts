@@ -3,6 +3,14 @@ import { apiErrors } from './errors'
 
 const tenantIdentityKeys = new Set(['orgId', 'organizationId', 'tenantId'])
 
+function containsTenantIdentity(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  if (Array.isArray(value)) return value.some(containsTenantIdentity)
+  return Object.entries(value).some(([key, nested]) =>
+    tenantIdentityKeys.has(key) || containsTenantIdentity(nested),
+  )
+}
+
 export async function parseStrictJsonBody<T extends z.ZodType>(
   request: Request,
   schema: T,
@@ -15,13 +23,7 @@ export async function parseStrictJsonBody<T extends z.ZodType>(
     throw apiErrors.badRequest('Request body must be valid JSON.')
   }
 
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-    for (const key of tenantIdentityKeys) {
-      if (Object.prototype.hasOwnProperty.call(payload, key)) {
-        throw apiErrors.tenantIdentityRejected()
-      }
-    }
-  }
+  if (containsTenantIdentity(payload)) throw apiErrors.tenantIdentityRejected()
 
   const parsed = schema.safeParse(payload)
 

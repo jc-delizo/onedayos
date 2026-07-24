@@ -16,4 +16,5 @@ export {
   TrueEmptyState,
 } from './page-states'
 export { ProcessFlowPage } from './process-flow-page'
+export { ProcessFlowDiagram } from './process-flow-diagram'
 export { SettingsPage, type SettingsPageProps } from './settings-page'

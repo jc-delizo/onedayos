@@ -11,6 +11,9 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'VALIDATION_ERROR'
   | 'TENANT_ID_NOT_ALLOWED'
+  | 'EXPORT_ROW_LIMIT_EXCEEDED'
+  | 'EXPORT_SELECTION_INVALID'
+  | 'EXPORT_EMPTY'
   | 'CONFLICT'
   | 'UNSUPPORTED_MEDIA_TYPE'
   | 'METHOD_NOT_ALLOWED'
@@ -27,6 +30,10 @@ export type ApiError = {
 
 export type ApiMeta = {
   requestId?: string
+  page?: number
+  pageSize?: number
+  total?: number
+  totalPages?: number
   pagination?: {
     cursor?: string | null
     nextCursor?: string | null

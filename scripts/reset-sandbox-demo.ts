@@ -1,8 +1,9 @@
-import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { resolveSupabaseAdminApiKey } from '../src/kernel/env/supabase-admin-key'
 import {
+  buildCanonicalDemoActivity,
   CANONICAL_DEMO_CATEGORY,
   CANONICAL_DEMO_PRODUCTS,
   CANONICAL_DEMO_SUPPLIER,
@@ -38,6 +39,13 @@ export function validateDemoResetEnv(env: ResetEnv, args: string[] = []): DemoCh
     checks.push(check(`Env ${key} present`, Boolean(env[key]), `Set ${key} privately before reset.`))
   }
 
+  try {
+    resolveSupabaseAdminApiKey(env)
+    checks.push(check('Supabase admin API key is valid', true))
+  } catch {
+    checks.push(check('Supabase admin API key is valid', false, 'Set SUPABASE_SECRET_KEY or a valid legacy service-role key.'))
+  }
+
   for (const key of ['DATABASE_URL', 'DIRECT_URL']) {
     checks.push(check(`Env ${key} is non-placeholder`, !hasPlaceholderValue(env[key]), `Set ${key} to the approved sandbox database.`))
   }
@@ -45,31 +53,11 @@ export function validateDemoResetEnv(env: ResetEnv, args: string[] = []): DemoCh
   return checks
 }
 
-async function runProvisioner(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn('npm', ['run', 'demo:provision'], {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: ['ignore', 'ignore', 'pipe'],
-    })
-    let stderr = ''
-
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8')
-    })
-    child.on('error', reject)
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve()
-        return
-      }
-
-      reject(new Error(stderr.trim() || 'demo:provision failed during reset.'))
-    })
-  })
-}
-
-export async function resetSandboxDemo(env: ResetEnv): Promise<DemoCheck[]> {
+export async function resetSandboxDemo(
+  env: ResetEnv,
+  options: { now?: Date } = {},
+): Promise<DemoCheck[]> {
+  const activityByProduct = buildCanonicalDemoActivity(options.now ?? new Date())
   const prisma = new PrismaClient({
     adapter: new PrismaPg({
       connectionString: env.DIRECT_URL ?? env.DATABASE_URL,
@@ -104,6 +92,18 @@ export async function resetSandboxDemo(env: ResetEnv): Promise<DemoCheck[]> {
       await tx.stockAdjustment.deleteMany({ where: { orgId: org.id } })
       await tx.stockBalance.deleteMany({ where: { orgId: org.id } })
       await tx.inventoryProductExtension.deleteMany({ where: { orgId: org.id } })
+      await tx.product.deleteMany({
+        where: {
+          orgId: org.id,
+          code: { notIn: CANONICAL_DEMO_PRODUCTS.map((product) => product.code) },
+        },
+      })
+      await tx.warehouse.deleteMany({
+        where: {
+          orgId: org.id,
+          code: { not: CANONICAL_DEMO_WAREHOUSE.code },
+        },
+      })
 
       const branch = await tx.branch.upsert({
         where: { orgId_name: { orgId: org.id, name: 'Main Branch' } },
@@ -227,35 +227,40 @@ export async function resetSandboxDemo(env: ResetEnv): Promise<DemoCheck[]> {
           },
         })
 
-        const adjustment = await tx.stockAdjustment.create({
-          data: {
-            orgId: org.id,
-            productId: product.id,
-            warehouseId: warehouse.id,
-            quantityBefore: '0',
-            quantityAfter: productInput.quantity,
-            quantityDelta: quantityDelta('0', productInput.quantity),
-            reason: 'Sandbox opening balance',
-            notes: 'sandbox-demo-reset-baseline',
-            status: 'posted',
-            createdBy: adminUser.id,
-          },
-        })
+        for (const activity of activityByProduct[productInput.code]) {
+          const adjustment = await tx.stockAdjustment.create({
+            data: {
+              orgId: org.id,
+              productId: product.id,
+              warehouseId: warehouse.id,
+              quantityBefore: activity.quantityBefore,
+              quantityAfter: activity.quantityAfter,
+              quantityDelta: quantityDelta(activity.quantityBefore, activity.quantityAfter),
+              reason: activity.reason,
+              notes: 'sandbox-demo-canonical-activity',
+              status: 'posted',
+              createdBy: adminUser.id,
+              createdAt: activity.occurredAt,
+            },
+          })
 
-        await tx.stockMovement.create({
-          data: {
-            orgId: org.id,
-            productId: product.id,
-            warehouseId: warehouse.id,
-            type: stockMovementType('0', productInput.quantity),
-            quantityDelta: adjustment.quantityDelta,
-            resultingQuantity: adjustment.quantityAfter,
-            sourceType: 'stock_adjustment',
-            sourceId: adjustment.id,
-            reason: adjustment.reason,
-            createdBy: adminUser.id,
-          },
-        })
+          await tx.stockMovement.create({
+            data: {
+              orgId: org.id,
+              productId: product.id,
+              warehouseId: warehouse.id,
+              type: stockMovementType(activity.quantityBefore, activity.quantityAfter),
+              quantityDelta: adjustment.quantityDelta,
+              resultingQuantity: adjustment.quantityAfter,
+              sourceType: 'stock_adjustment',
+              sourceId: adjustment.id,
+              reason: adjustment.reason,
+              createdBy: adminUser.id,
+              occurredAt: activity.occurredAt,
+              createdAt: activity.occurredAt,
+            },
+          })
+        }
 
         await tx.stockBalance.create({
           data: {
@@ -266,12 +271,10 @@ export async function resetSandboxDemo(env: ResetEnv): Promise<DemoCheck[]> {
           },
         })
       }
-    })
+    }, { timeout: 20_000 })
   } finally {
     await prisma.$disconnect()
   }
-
-  await runProvisioner()
 
   return checksFromDemoData(await createLiveDemoDataSnapshot(env))
 }

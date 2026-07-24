@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import type { z } from 'zod'
 import type { PermissionRequirement, PlatformContext } from '@/sdk'
 import { apiErrors } from '@/kernel/api/errors'
+import { apiSuccess } from '@/kernel/api/response'
 import { sdk } from '@/sdk/server'
 import { idParamSchema } from './schema'
 
@@ -15,6 +16,10 @@ type ItemContext = {
 
 type CollectionService<TQuery, TCreate> = {
   list(ctx: PlatformContext, query: TQuery): Promise<unknown>
+  listPage?(ctx: PlatformContext, query: TQuery): Promise<{
+    rows: unknown
+    meta: { page: number; pageSize: number; total: number; totalPages: number }
+  }>
   create(ctx: PlatformContext, input: TCreate): Promise<unknown>
 }
 
@@ -68,6 +73,10 @@ export function createBusinessObjectCollectionHandlers<TQuerySchema extends z.Zo
         const ctx = await requireOrgContext(handledRequest, orgSlug, requestId)
         await sdk.permissions.require(ctx, permissions.READ)
         const query = sdk.api.parseSearchParams(handledRequest.nextUrl.searchParams, listSchema)
+        if (service.listPage) {
+          const result = await service.listPage(ctx, query)
+          return apiSuccess(result.rows, {}, result.meta)
+        }
         const data = await service.list(ctx, query)
         return sdk.api.ok(data)
       })(request)

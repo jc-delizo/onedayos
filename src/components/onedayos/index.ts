@@ -2,6 +2,19 @@ export { BrandMark } from './brand-mark'
 export { isSegmentActive, TenantAppShell } from './app-shell'
 export { DataTable, type DataTableColumn } from './data-table'
 export {
+  DataTableV2,
+  createTableQuerySchema,
+  tableSearchSchema,
+  useTableQueryState,
+  type DataTableFilter,
+  type DataTableExportOptions,
+  type DataTableMode,
+  type DataTablePageMeta,
+  type DataTableQueryState,
+  type DataTableRowInteraction,
+  type DataTableV2Column,
+} from './data-table/index'
+export {
   AppLauncherSkeleton,
   AppShellSkeleton,
   DashboardPageSkeleton,
@@ -9,7 +22,7 @@ export {
   ProcessFlowPageSkeleton,
   TablePageSkeleton,
 } from './loading-skeletons'
-export { PageHeader, SectionHeader } from './page-header'
+export { PageHeader, SectionHeader, type PageHeaderMode } from './page-header'
 export { AuthShell, FoundationShell } from './shells'
 export {
   EmptyState,
@@ -33,3 +46,5 @@ export {
 } from './theme-script'
 export type { AppearancePreference, ResolvedAppearance, ResolvedTheme, ThemePreference } from './theme-script'
 export * from './patterns'
+export * from './modal'
+export * from './charts'

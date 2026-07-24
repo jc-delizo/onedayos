@@ -13,6 +13,7 @@ export type RecordAreaConfig = {
   label: string
   singular: string
   description: string
+  inventoryOwnership?: string
   endpoint: string
   fields: RecordFormField[]
 }
@@ -42,6 +43,7 @@ export const recordAreas: RecordAreaConfig[] = [
     singular: 'Product',
     endpoint: 'products',
     description: 'Shared product/SKU identity used by Inventory and future modules.',
+    inventoryOwnership: 'Shared Product identity used by Inventory and other apps. Inventory manages stock behavior, not Product identity.',
     fields: [
       { name: 'code', label: 'Code', required: true },
       { name: 'name', label: 'Name', required: true },
@@ -56,6 +58,7 @@ export const recordAreas: RecordAreaConfig[] = [
     singular: 'Product category',
     endpoint: 'product-categories',
     description: 'Shared product classification used across product-based workflows.',
+    inventoryOwnership: 'Shared Product Category identity used by Inventory and other product-based workflows.',
     fields: [
       { name: 'name', label: 'Name', required: true },
     ],
@@ -66,6 +69,7 @@ export const recordAreas: RecordAreaConfig[] = [
     singular: 'Customer',
     endpoint: 'customers',
     description: 'Shared customer identity used by CRM and future customer-facing workflows. CRM is not implemented in this MVP.',
+    inventoryOwnership: 'Shared Customer identity available for future issue references and customer-facing workflows. Inventory V2 issues and CRM are not implemented yet.',
     fields: [
       { name: 'name', label: 'Name', required: true },
       { name: 'email', label: 'Email', type: 'email' },
@@ -79,6 +83,7 @@ export const recordAreas: RecordAreaConfig[] = [
     singular: 'Supplier',
     endpoint: 'suppliers',
     description: 'Shared supplier identity used by Inventory, Purchasing, and future procurement workflows. Purchasing is not implemented in this MVP.',
+    inventoryOwnership: 'Shared Supplier identity available to Inventory and future procurement workflows. Purchasing and receipts are not implemented yet.',
     fields: [
       { name: 'name', label: 'Name', required: true },
       { name: 'email', label: 'Email', type: 'email' },
@@ -92,6 +97,7 @@ export const recordAreas: RecordAreaConfig[] = [
     singular: 'Warehouse',
     endpoint: 'warehouses',
     description: 'Shared warehouse/location identity used by Inventory and future stock workflows.',
+    inventoryOwnership: 'Shared Warehouse identity used by Inventory and future stock workflows.',
     fields: [
       { name: 'code', label: 'Code', required: true },
       { name: 'name', label: 'Name', required: true },

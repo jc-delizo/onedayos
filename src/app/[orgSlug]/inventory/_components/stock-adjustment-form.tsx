@@ -7,17 +7,23 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FormMessage, Label } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import type { StockAdjustmentFormOptions } from '@/modules/inventory/types'
+import { useRouteModalLifecycle } from '@/components/onedayos'
 
 export function StockAdjustmentForm({
   orgSlug,
   options,
+  initialProductId,
+  initialWarehouseId,
 }: {
   orgSlug: string
   options: StockAdjustmentFormOptions
+  initialProductId?: string
+  initialWarehouseId?: string
 }) {
   const router = useRouter()
-  const [productId, setProductId] = useState(options.products[0]?.id ?? '')
-  const [warehouseId, setWarehouseId] = useState(options.warehouses[0]?.id ?? '')
+  const modal = useRouteModalLifecycle()
+  const [productId, setProductId] = useState(initialProductId ?? options.products[0]?.id ?? '')
+  const [warehouseId, setWarehouseId] = useState(initialWarehouseId ?? options.warehouses[0]?.id ?? '')
   const [message, setMessage] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -58,14 +64,18 @@ export function StockAdjustmentForm({
       return
     }
 
-    router.push(`/${orgSlug}/inventory/stock-adjustments` as never)
-    router.refresh()
+    if (modal) {
+      modal.completeMutation()
+    } else {
+      router.push(`/${orgSlug}/inventory/stock-adjustments` as never)
+      router.refresh()
+    }
   }
 
   const disabled = pending || options.products.length === 0 || options.warehouses.length === 0
 
   return (
-    <form className="max-w-2xl space-y-4" onSubmit={submit}>
+    <form className="max-w-2xl space-y-4" onSubmit={submit} onChange={() => modal?.markDirty()}>
       <Field>
         <Label htmlFor="productId" required>Product</Label>
         <select
@@ -133,7 +143,7 @@ export function StockAdjustmentForm({
         <Button disabled={disabled} type="submit" variant="primary">
           {pending ? 'Posting...' : 'Post Adjustment'}
         </Button>
-        <Button disabled={pending} type="button" variant="secondary" onClick={() => router.push(`/${orgSlug}/inventory/stock-adjustments` as never)}>
+        <Button disabled={pending} type="button" variant="secondary" onClick={() => modal ? modal.requestClose() : router.push(`/${orgSlug}/inventory/stock-adjustments` as never)}>
           Cancel
         </Button>
       </div>

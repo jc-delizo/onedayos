@@ -7,13 +7,45 @@ export const INVENTORY_MODULE_COMPATIBILITY = {
 } as const satisfies ModuleCompatibility
 
 export type InventoryDashboard = {
-  summary: {
-    trackedProducts: number | null
-    lowStockProducts: number | null
-    warehousesWithStock: number | null
+  kpis: InventoryDashboardKpis
+  stockHealth: StockHealthDatum[]
+  movementTrend: MovementTrendDatum[]
+  movementRange: {
+    start: string
+    end: string
+    timezone: 'UTC'
   }
+  warehouseStock: WarehouseStockDatum[]
   recentMovements: StockMovementListItem[]
   recentAdjustments: StockAdjustmentListItem[]
+}
+
+export type InventoryDashboardKpis = {
+  trackedProducts: number
+  lowStockProducts: number
+  outOfStockProducts: number
+  warehousesWithStock: number
+}
+
+export type StockHealthStatus = 'in_stock' | 'low_stock' | 'out_of_stock'
+
+export type StockHealthDatum = {
+  status: StockHealthStatus
+  label: string
+  count: number
+}
+
+export type MovementTrendDatum = {
+  date: string
+  inbound: number
+  outbound: number
+}
+
+export type WarehouseStockDatum = {
+  warehouseName: string
+  trackedPositions: number
+  lowStockPositions: number
+  outOfStockPositions: number
 }
 
 export type InventoryProductSettingListItem = {
@@ -106,4 +138,14 @@ export type StockAdjustmentFormOptions = {
     warehouseId: string
     quantity: string
   }>
+}
+
+export type InventoryPage<T> = {
+  rows: T[]
+  meta: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
 }

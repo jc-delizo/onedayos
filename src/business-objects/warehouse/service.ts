@@ -33,6 +33,13 @@ export const WarehouseService = createBusinessObjectService<CreateWarehouseInput
   eventIdField: 'warehouseId',
   searchFields: ['code', 'name', 'address'],
   orderBy: { name: 'asc' },
+  listArgs: {
+    include: {
+      branch: {
+        select: { name: true },
+      },
+    },
+  },
   async createData(input, ctx, prisma) {
     await validateBranchReference(ctx, prisma, input.branchId)
 

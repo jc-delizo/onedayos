@@ -15,19 +15,22 @@ export const inventoryRouteIdSchema = z.strictObject({
 })
 
 const pagedQuerySchema = z.strictObject({
+  q: z.string().trim().max(120).transform((value) => value.replace(/\s+/g, ' ')).optional(),
+  search: z.string().trim().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  direction: z.enum(['asc', 'desc']).optional(),
+})
+
+const legacyPagedQuerySchema = z.strictObject({
   search: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 })
 
-const booleanQuerySchema = z.preprocess((value) => {
-  if (value === 'true') return true
-  if (value === 'false') return false
-  return value
-}, z.boolean())
-
 export const productSettingListQuerySchema = pagedQuerySchema.extend({
   productId: optionalIdSchema,
+  sort: z.enum(['product', 'reorderPoint']).optional(),
 })
 
 export const upsertProductSettingSchema = z.strictObject({
@@ -44,7 +47,7 @@ export const updateProductSettingSchema = z.strictObject({
 export const stockLevelQuerySchema = pagedQuerySchema.extend({
   productId: optionalIdSchema,
   warehouseId: optionalIdSchema,
-  lowStockOnly: booleanQuerySchema.optional(),
+  sort: z.enum(['product', 'warehouse', 'quantity']).optional(),
 })
 
 export const stockMovementQuerySchema = pagedQuerySchema.extend({
@@ -55,11 +58,14 @@ export const stockMovementQuerySchema = pagedQuerySchema.extend({
     .optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  sort: z.enum(['occurredAt', 'product', 'quantity']).optional(),
 })
 
 export const stockAdjustmentQuerySchema = pagedQuerySchema.extend({
   productId: optionalIdSchema,
   warehouseId: optionalIdSchema,
+  status: z.enum(['posted']).optional(),
+  sort: z.enum(['createdAt', 'product', 'quantity']).optional(),
 })
 
 export const createStockAdjustmentSchema = z.strictObject({
@@ -70,6 +76,11 @@ export const createStockAdjustmentSchema = z.strictObject({
   notes: z.string().trim().max(1000).optional(),
 })
 
+export const stockAdjustmentPrefillSchema = z.strictObject({
+  productId: optionalIdSchema,
+  warehouseId: optionalIdSchema,
+})
+
 export type ProductSettingListQuery = z.infer<typeof productSettingListQuerySchema>
 export type InventoryRouteId = z.infer<typeof inventoryRouteIdSchema>
 export type UpsertProductSettingInput = z.infer<typeof upsertProductSettingSchema>
@@ -78,3 +89,4 @@ export type StockLevelQuery = z.infer<typeof stockLevelQuerySchema>
 export type StockMovementQuery = z.infer<typeof stockMovementQuerySchema>
 export type StockAdjustmentQuery = z.infer<typeof stockAdjustmentQuerySchema>
 export type CreateStockAdjustmentInput = z.infer<typeof createStockAdjustmentSchema>
+export type StockAdjustmentPrefill = z.infer<typeof stockAdjustmentPrefillSchema>

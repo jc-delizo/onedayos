@@ -93,7 +93,7 @@ describe('ProcessFlowPage', () => {
   it('remains understandable without relying on color-only content', () => {
     render(<ProcessFlowPage definition={inventoryFlow} />)
 
-    expect(screen.getByText('Process steps')).toBeInTheDocument()
+    expect(screen.getByText('Current step details')).toBeInTheDocument()
     expect(screen.getAllByText('Inputs').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Outputs').length).toBeGreaterThan(0)
     expect(screen.getByText('What this module owns')).toBeInTheDocument()

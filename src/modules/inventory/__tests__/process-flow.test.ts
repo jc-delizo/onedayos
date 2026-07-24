@@ -11,7 +11,6 @@ const expectedStepIds = [
   'stock-balance',
   'stock-movement-ledger',
   'low-stock-detection',
-  'future-integrations',
 ] as const
 
 describe('inventory Process Flow definition', () => {
@@ -65,8 +64,23 @@ describe('inventory Process Flow definition', () => {
       'Customer',
       'Employee',
     ])
-    expect(inventoryProcessFlow.futureIntegrations?.join(' ')).toMatch(/Purchasing receipts can later/i)
-    expect(inventoryProcessFlow.futureIntegrations?.join(' ')).toMatch(/Notification Service can later/i)
+    expect(inventoryProcessFlow.futureIntegrations?.join(' ')).toMatch(/Purchasing may later/i)
+    expect(inventoryProcessFlow.futureIntegrations?.join(' ')).toMatch(/Notifications may later/i)
+  })
+
+  it('declares the current branch and keeps V2 workflows explicitly planned', () => {
+    expect(inventoryProcessFlow.connections).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: 'transactional-posting', to: 'stock-balance' }),
+      expect.objectContaining({ from: 'transactional-posting', to: 'stock-movement-ledger' }),
+      expect.objectContaining({ from: 'stock-movement-ledger', to: 'low-stock-detection' }),
+    ]))
+    expect(inventoryProcessFlow.plannedSteps?.map((step) => step.title)).toEqual([
+      'Receipts',
+      'Issues',
+      'Transfers',
+    ])
+    expect(inventoryProcessFlow.plannedSteps?.every((step) => step.status === 'planned')).toBe(true)
+    expect(inventoryProcessFlow.plannedLabel).toMatch(/not implemented in the current demo/i)
   })
 
   it('contains no tenant identity, server imports, API calls, Prisma, or executable workflow logic', () => {

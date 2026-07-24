@@ -1,6 +1,6 @@
 # Demo Runtime Validation Report
 
-Date: 2026-07-19
+Date: 2026-07-24
 
 Environment: controlled sandbox
 
@@ -32,7 +32,7 @@ This approval is limited to guided sandbox walkthroughs using the prepared demo 
 
 `npm run demo:reset`: passed.
 
-The reset was guarded by demo mode, sandbox DB approval, reset approval, and configured demo org slug. It completed for the configured demo organization only and repaired canonical demo data.
+The reset was guarded by demo mode, sandbox DB approval, reset approval, and configured demo org slug. Repeated reset completed for the configured demo organization only and produced the same canonical counts. It removed prior scale-test Product/Warehouse and Inventory drift inside that organization while preserving organization, subscription, users, roles, permissions, and module enablement.
 
 ## Readiness Checker Result
 
@@ -106,13 +106,19 @@ Warehouse User:
 - Inventory enabled.
 - Product categories: `1`
 - Canonical products: `3`
+- Active products: `3`
 - Suppliers: `1`
 - Warehouses: `1`
 - InventoryProductExtension rows: `3`
 - StockBalance rows: `3`
-- StockMovement rows: `3`
-- StockAdjustment rows: `3`
+- StockMovement rows: `9`
+- StockAdjustment rows: `9`
+- Recent movement pattern: `3` opening balances, `3` adjustment-in, `3` adjustment-out
+- Recent UTC activity dates: June 30 through July 23, 2026
+- Final balances: Bottled Water `120`, Iced Tea `35`, Coffee Beans `8`
 - Coffee Beans is low stock.
+
+All movement rows have matching persisted StockAdjustment sources and internally consistent before/after/delta/resulting quantities. No Receipt, Issue, Transfer, or unsupported movement type exists.
 
 ## Runtime
 
@@ -121,9 +127,9 @@ Warehouse User:
 - Local URL: `http://localhost:1320`
 - Public sandbox URL: `http://46.250.229.188:1320`
 
-## Known Advisory
+## Dependency Audit
 
-`npm audit --audit-level=moderate` continues to report the known upstream Next/PostCSS moderate advisory. `npm audit fix --force` was not run.
+Production-moderate, full-high, and full-moderate audits pass with zero vulnerabilities. No audit fix command was run.
 
 ## Known Limitations
 

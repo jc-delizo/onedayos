@@ -12,7 +12,7 @@ const controlledDemoEnv = {
   DIRECT_URL: 'postgresql://sandbox-direct.example/onedayos',
   NEXT_PUBLIC_SUPABASE_URL: 'https://sandbox.supabase.co',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
-  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  SUPABASE_SECRET_KEY: 'sb_secret_sandbox-test-key',
   NEXT_PUBLIC_APP_URL: 'http://localhost:1320',
   ONEDAYOS_DEMO_MODE: 'true',
   ONEDAYOS_PUBLIC_REGISTRATION_ENABLED: 'false',
@@ -53,12 +53,19 @@ const readySnapshot: DemoDataSnapshot = {
   warehouseOrgAdminPermissionCount: 0,
   productCategoryExists: true,
   canonicalProductCount: 3,
+  activeProductCount: 3,
   supplierExists: true,
   warehouseExists: true,
+  activeWarehouseCount: 1,
   productExtensionCount: 3,
   stockBalanceCount: 3,
-  stockMovementCount: 3,
-  stockAdjustmentCount: 3,
+  stockMovementCount: 9,
+  stockAdjustmentCount: 9,
+  recentInboundMovementCount: 6,
+  recentOutboundMovementCount: 3,
+  recentAdjustmentCount: 9,
+  unsupportedMovementTypeCount: 0,
+  canonicalBalancesExact: true,
   coffeeBeansLowStock: true,
 }
 
@@ -97,6 +104,26 @@ describe('controlled demo readiness checks', () => {
 
     expect(checks).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Public registration disabled', ok: false })]))
     expect(checks).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Env ONEDAYOS_DEMO_ADMIN_PASSWORD is non-placeholder', ok: false })]))
+  })
+
+  it('accepts the legacy service-role fallback when the canonical key is absent', () => {
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url')
+    const payload = Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url')
+    const { SUPABASE_SECRET_KEY: _secret, ...legacyEnv } = controlledDemoEnv
+
+    expect(validateControlledDemoEnv({
+      ...legacyEnv,
+      SUPABASE_SERVICE_ROLE_KEY: `${header}.${payload}.test-signature`,
+    }).every((item) => item.ok)).toBe(true)
+  })
+
+  it('rejects a publishable key for admin operations', () => {
+    const checks = validateControlledDemoEnv({
+      ...controlledDemoEnv,
+      SUPABASE_SECRET_KEY: 'sb_publishable_not-an-admin-key',
+    })
+
+    expect(checks).toContainEqual(expect.objectContaining({ name: 'Supabase admin API key is valid', ok: false }))
   })
 
   it('verifies source controls for registration, noindex, scripts, and port 1320', () => {

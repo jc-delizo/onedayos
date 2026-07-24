@@ -227,6 +227,12 @@ const rules: Rule[] = [
     pattern: /from\s+['"]@prisma\/client['"]|from\s+['"]@\/kernel\/db/,
   },
   {
+    id: 'no-client-exceljs',
+    detail: 'ExcelJS is server-only and must not enter client components.',
+    appliesTo: (_file, content) => /^\s*['"]use client['"]/.test(content),
+    pattern: /from\s+['"]exceljs['"]|require\(\s*['"]exceljs['"]\s*\)/,
+  },
+  {
     id: 'no-org-id-form-field',
     detail: 'Client forms must not submit orgId fields.',
     pattern: /<input[^>]+name\s*=\s*(?:["']orgId["']|\{["']orgId["']\})/,

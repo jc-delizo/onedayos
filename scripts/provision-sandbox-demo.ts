@@ -1,7 +1,10 @@
 import { Prisma, PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdminApiKey } from '../src/kernel/env/supabase-admin-key'
 import {
+  buildCanonicalDemoActivity,
+  CANONICAL_DEMO_PRODUCTS,
   hasPlaceholderValue,
   loadDemoEnvFiles,
   permissionKey,
@@ -18,7 +21,6 @@ const REQUIRED_ENV = [
   'DIRECT_URL',
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
   'NEXT_PUBLIC_APP_URL',
   'ONEDAYOS_SANDBOX_DB_APPROVED',
   'ONEDAYOS_DEMO_ADMIN_EMAIL',
@@ -83,7 +85,7 @@ const prisma = new PrismaClient({
   }),
 })
 
-const supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+const supabaseAdmin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, getSupabaseAdminApiKey(), {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -170,6 +172,7 @@ async function ensureDemoAuthUser(input: DemoAuthUserInput): Promise<DemoAuthUse
 }
 
 async function main() {
+  const canonicalActivity = buildCanonicalDemoActivity(new Date())
   const { user: authUser, action: authUserAction } = await ensureDemoAuthUser({
     email: env.ONEDAYOS_DEMO_ADMIN_EMAIL,
     password: env.ONEDAYOS_DEMO_ADMIN_PASSWORD,
@@ -561,13 +564,7 @@ async function main() {
       })
     }
 
-    const demoProducts = [
-      { code: 'WAT-500', name: 'Bottled Water 500ml', unit: 'bottle', quantity: '120', reorderPoint: '50' },
-      { code: 'TEA-1L', name: 'Iced Tea 1L', unit: 'bottle', quantity: '35', reorderPoint: '25' },
-      { code: 'COF-1KG', name: 'Coffee Beans 1kg', unit: 'bag', quantity: '8', reorderPoint: '10' },
-    ]
-
-    for (const productInput of demoProducts) {
+    for (const productInput of CANONICAL_DEMO_PRODUCTS) {
       const product = await tx.product.upsert({
         where: {
           orgId_code: {
@@ -625,35 +622,40 @@ async function main() {
       })
 
       if (!existingBalance) {
-        const adjustment = await tx.stockAdjustment.create({
-          data: {
-            orgId: org.id,
-            productId: product.id,
-            warehouseId: warehouse.id,
-            quantityBefore: '0',
-            quantityAfter: productInput.quantity,
-            quantityDelta: quantityDelta('0', productInput.quantity),
-            reason: 'Sandbox opening balance',
-            notes: 'sandbox-demo-opening-balance',
-            status: 'posted',
-            createdBy: user.id,
-          },
-        })
+        for (const activity of canonicalActivity[productInput.code]) {
+          const adjustment = await tx.stockAdjustment.create({
+            data: {
+              orgId: org.id,
+              productId: product.id,
+              warehouseId: warehouse.id,
+              quantityBefore: activity.quantityBefore,
+              quantityAfter: activity.quantityAfter,
+              quantityDelta: quantityDelta(activity.quantityBefore, activity.quantityAfter),
+              reason: activity.reason,
+              notes: 'sandbox-demo-canonical-activity',
+              status: 'posted',
+              createdBy: user.id,
+              createdAt: activity.occurredAt,
+            },
+          })
 
-        await tx.stockMovement.create({
-          data: {
-            orgId: org.id,
-            productId: product.id,
-            warehouseId: warehouse.id,
-            type: stockMovementType('0', productInput.quantity),
-            quantityDelta: adjustment.quantityDelta,
-            resultingQuantity: adjustment.quantityAfter,
-            sourceType: 'stock_adjustment',
-            sourceId: adjustment.id,
-            reason: adjustment.reason,
-            createdBy: user.id,
-          },
-        })
+          await tx.stockMovement.create({
+            data: {
+              orgId: org.id,
+              productId: product.id,
+              warehouseId: warehouse.id,
+              type: stockMovementType(activity.quantityBefore, activity.quantityAfter),
+              quantityDelta: adjustment.quantityDelta,
+              resultingQuantity: adjustment.quantityAfter,
+              sourceType: 'stock_adjustment',
+              sourceId: adjustment.id,
+              reason: adjustment.reason,
+              createdBy: user.id,
+              occurredAt: activity.occurredAt,
+              createdAt: activity.occurredAt,
+            },
+          })
+        }
 
         await tx.stockBalance.create({
           data: {
@@ -797,7 +799,7 @@ async function main() {
       stockMovementCount,
       stockAdjustmentCount,
     }
-  })
+  }, { timeout: 20_000 })
 
   console.log(
     JSON.stringify(

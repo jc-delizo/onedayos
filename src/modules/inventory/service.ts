@@ -20,14 +20,19 @@ import type {
 } from './schema'
 import type {
   InventoryDashboard,
+  InventoryDashboardKpis,
   InventoryFormOption,
   InventoryProductSettingListItem,
+  MovementTrendDatum,
   StockAdjustmentCreated,
   StockAdjustmentFormOptions,
   StockAdjustmentListItem,
+  StockHealthDatum,
+  InventoryPage,
   StockLevelListItem,
   StockMovementListItem,
   StockStatus,
+  WarehouseStockDatum,
 } from './types'
 
 type DecimalLike = string | number | { toString(): string } | null | undefined
@@ -119,13 +124,31 @@ type Delegate<TRecord> = {
 }
 
 type InventoryPrisma = {
-  product: Pick<Delegate<ProductRecord>, 'findMany' | 'findFirst'>
-  warehouse: Pick<Delegate<WarehouseRecord>, 'findMany' | 'findFirst'>
+  product: Pick<Delegate<ProductRecord>, 'findMany' | 'findFirst' | 'count'>
+  warehouse: Pick<Delegate<WarehouseRecord>, 'findMany' | 'findFirst' | 'count'>
   inventoryProductExtension: Delegate<InventoryProductExtensionRecord>
   stockBalance: Delegate<StockBalanceRecord>
   stockMovement: Delegate<StockMovementRecord>
   stockAdjustment: Delegate<StockAdjustmentRecord>
   $transaction<T>(callback: (tx: InventoryPrisma) => Promise<T>): Promise<T>
+}
+
+type DashboardProductExtensionRecord = InventoryProductExtensionRecord & {
+  product: ProductRecord
+}
+
+const DASHBOARD_MOVEMENT_TYPES = [
+  'opening_balance',
+  'adjustment_in',
+  'adjustment_out',
+] as const
+
+export const DASHBOARD_AGGREGATION_MAX_CANDIDATES = 50_000
+
+type DashboardMovementType = (typeof DASHBOARD_MOVEMENT_TYPES)[number]
+
+function isDashboardMovementType(value: string): value is DashboardMovementType {
+  return (DASHBOARD_MOVEMENT_TYPES as readonly string[]).includes(value)
 }
 
 type InventoryEvent = {
@@ -188,6 +211,157 @@ function formatUnits(units: bigint): string {
 
 function decimalString(value: DecimalLike): string {
   return formatUnits(decimalToUnits(value))
+}
+
+function unitsToNumber(units: bigint): number {
+  return Number(formatUnits(units))
+}
+
+function startOfUtcDay(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
+}
+
+function addUtcDays(value: Date, days: number): Date {
+  const next = new Date(value)
+  next.setUTCDate(next.getUTCDate() + days)
+  return next
+}
+
+function utcDateKey(value: Date | string): string {
+  return toIso(value).slice(0, 10)
+}
+
+export function buildMovementTrend(
+  records: Array<Pick<StockMovementRecord, 'type' | 'quantityDelta' | 'occurredAt'>>,
+  now: Date,
+): { data: MovementTrendDatum[]; start: Date; end: Date } {
+  const today = startOfUtcDay(now)
+  const start = addUtcDays(today, -29)
+  const end = addUtcDays(today, 1)
+  const byDate = new Map<string, MovementTrendDatum>()
+
+  for (let offset = 0; offset < 30; offset += 1) {
+    const date = utcDateKey(addUtcDays(start, offset))
+    byDate.set(date, { date, inbound: 0, outbound: 0 })
+  }
+
+  for (const record of records) {
+    if (!isDashboardMovementType(record.type)) {
+      throw new InventoryServiceError(
+        'The movement trend contains an unsupported movement type.',
+        'INTERNAL_ERROR',
+        500,
+      )
+    }
+
+    const bucket = byDate.get(utcDateKey(record.occurredAt))
+    if (!bucket) continue
+    const magnitude = unitsToNumber(decimalToUnits(record.quantityDelta))
+
+    if (record.type === 'opening_balance' || record.type === 'adjustment_in') {
+      bucket.inbound += Math.abs(magnitude)
+    } else {
+      bucket.outbound += Math.abs(magnitude)
+    }
+  }
+
+  return { data: [...byDate.values()], start, end }
+}
+
+export function buildDashboardStockSummary(
+  extensions: DashboardProductExtensionRecord[],
+  balances: StockBalanceRecord[],
+  warehouses: WarehouseRecord[],
+): {
+  kpis: InventoryDashboardKpis
+  stockHealth: StockHealthDatum[]
+  warehouseStock: WarehouseStockDatum[]
+} {
+  const extensionByProduct = new Map(extensions.map((extension) => [extension.productId, extension]))
+  const productTotals = new Map(extensions.map((extension) => [extension.productId, 0n]))
+  const warehouseRows = new Map(
+    warehouses.map((warehouse) => [
+      warehouse.id,
+      {
+        warehouseName: warehouse.name,
+        trackedPositions: new Set<string>(),
+        lowStockPositions: new Set<string>(),
+        outOfStockPositions: new Set<string>(),
+        hasPositiveStock: false,
+      },
+    ]),
+  )
+
+  for (const balance of balances) {
+    const extension = extensionByProduct.get(balance.productId)
+    const warehouse = warehouseRows.get(balance.warehouseId)
+    if (!extension || !warehouse) continue
+
+    const quantity = decimalToUnits(balance.quantity)
+    productTotals.set(balance.productId, (productTotals.get(balance.productId) ?? 0n) + quantity)
+    warehouse.trackedPositions.add(balance.productId)
+    warehouse.hasPositiveStock ||= quantity > 0n
+
+    const reorderPoint = decimalToUnits(extension.reorderPoint)
+    if (quantity <= 0n) warehouse.outOfStockPositions.add(balance.productId)
+    else if (reorderPoint > 0n && quantity <= reorderPoint) warehouse.lowStockPositions.add(balance.productId)
+  }
+
+  let inStock = 0
+  let lowStock = 0
+  let outOfStock = 0
+
+  for (const extension of extensions) {
+    const quantity = productTotals.get(extension.productId) ?? 0n
+    const reorderPoint = decimalToUnits(extension.reorderPoint)
+    if (quantity <= 0n) outOfStock += 1
+    else if (reorderPoint > 0n && quantity <= reorderPoint) lowStock += 1
+    else inStock += 1
+  }
+
+  const warehouseStock = [...warehouseRows.values()]
+    .map((warehouse): WarehouseStockDatum => ({
+      warehouseName: warehouse.warehouseName,
+      trackedPositions: warehouse.trackedPositions.size,
+      lowStockPositions: warehouse.lowStockPositions.size,
+      outOfStockPositions: warehouse.outOfStockPositions.size,
+    }))
+    .sort((left, right) => (
+      right.trackedPositions - left.trackedPositions
+      || left.warehouseName.localeCompare(right.warehouseName)
+    ))
+
+  return {
+    kpis: {
+      trackedProducts: extensions.length,
+      lowStockProducts: lowStock,
+      outOfStockProducts: outOfStock,
+      warehousesWithStock: [...warehouseRows.values()].filter((warehouse) => warehouse.hasPositiveStock).length,
+    },
+    stockHealth: [
+      { status: 'in_stock', label: 'In Stock', count: inStock },
+      { status: 'low_stock', label: 'Low Stock', count: lowStock },
+      { status: 'out_of_stock', label: 'Out of Stock', count: outOfStock },
+    ],
+    warehouseStock,
+  }
+}
+
+export function assertDashboardAggregationCapacity(counts: {
+  trackedProducts: number
+  balances: number
+  warehouses: number
+  movements: number
+}): void {
+  const candidateCount = counts.trackedProducts + counts.balances + counts.warehouses + counts.movements
+
+  if (candidateCount > DASHBOARD_AGGREGATION_MAX_CANDIDATES) {
+    throw new InventoryServiceError(
+      'Dashboard analytics exceed the current exact-processing limit. Narrow the operational scope or contact an administrator while aggregate optimization is prepared.',
+      'VALIDATION_ERROR',
+      422,
+    )
+  }
 }
 
 function relationWhere(ctx: PlatformContext, id: string) {
@@ -377,45 +551,151 @@ async function emitInventoryEvents(ctx: PlatformContext, events: InventoryEvent[
 }
 
 export class InventoryService {
-  static async getDashboard(ctx: PlatformContext): Promise<InventoryDashboard> {
+  static async listWarehouseFilterOptions(
+    ctx: PlatformContext,
+    requirement: PermissionRequirement,
+  ): Promise<InventoryFormOption[]> {
+    await requireInventoryPermission(ctx, requirement)
+    const prisma = getInventoryPrisma(ctx)
+    const where = activeWarehouseWhere(ctx)
+    const count = prisma.warehouse.count
+    if (!count) throw new InventoryServiceError('Warehouse filters are temporarily unavailable.', 'INTERNAL_ERROR', 500)
+    const total = await count.call(prisma.warehouse, { where })
+    if (total > 250) {
+      throw new InventoryServiceError(
+        'There are too many warehouses to build this filter safely. Contact an administrator.',
+        'VALIDATION_ERROR',
+        400,
+      )
+    }
+    const rows = await prisma.warehouse.findMany({
+      where,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: 250,
+    })
+    return rows.map((warehouse) => ({
+      id: warehouse.id,
+      label: `${warehouse.code} - ${warehouse.name}`,
+    }))
+  }
+
+  static async getDashboard(
+    ctx: PlatformContext,
+    options: { now?: Date } = {},
+  ): Promise<InventoryDashboard> {
     await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.DASHBOARD_READ)
 
-    const canReadLevels = sdk.permissions.can(ctx, INVENTORY_PERMISSIONS.STOCK_LEVEL_READ)
     const canReadMovements = sdk.permissions.can(ctx, INVENTORY_PERMISSIONS.STOCK_MOVEMENT_READ)
     const canReadAdjustments = sdk.permissions.can(ctx, INVENTORY_PERMISSIONS.STOCK_ADJUSTMENT_READ)
-
-    const stockLevels = canReadLevels
-      ? await this.listStockLevels(ctx, { page: 1, pageSize: 100, lowStockOnly: undefined, search: undefined })
-      : []
-    const recentMovements = canReadMovements
-      ? await this.listStockMovements(ctx, { page: 1, pageSize: 5, search: undefined })
-      : []
-    const recentAdjustments = canReadAdjustments
-      ? await this.listStockAdjustments(ctx, { page: 1, pageSize: 5, search: undefined })
-      : []
+    const now = options.now ?? new Date()
+    const rangeStart = addUtcDays(startOfUtcDay(now), -29)
+    const rangeEnd = addUtcDays(startOfUtcDay(now), 1)
 
     const prisma = getInventoryPrisma(ctx)
-    const trackedProducts = canReadLevels
-      ? await prisma.inventoryProductExtension.count?.({
-          where: {
-            orgId: ctx.org.id,
-            deletedAt: null,
-            isStockTracked: true,
-            product: {
-              deletedAt: null,
-              isActive: true,
+    const extensionWhere = {
+      orgId: ctx.org.id,
+      deletedAt: null,
+      isStockTracked: true,
+      product: activeProductWhere(ctx),
+    }
+    const balanceWhere = {
+      orgId: ctx.org.id,
+      product: {
+        ...activeProductWhere(ctx),
+        inventoryExtension: {
+          deletedAt: null,
+          isStockTracked: true,
+        },
+      },
+      warehouse: activeWarehouseWhere(ctx),
+    }
+    const warehouseWhere = activeWarehouseWhere(ctx)
+    const movementWhere = {
+      orgId: ctx.org.id,
+      occurredAt: {
+        gte: rangeStart,
+        lt: rangeEnd,
+      },
+      product: activeProductWhere(ctx),
+      warehouse: activeWarehouseWhere(ctx),
+    }
+    const extensionCount = prisma.inventoryProductExtension.count
+    const balanceCount = prisma.stockBalance.count
+    const warehouseCount = prisma.warehouse.count
+    const movementCount = prisma.stockMovement.count
+    if (!extensionCount || !balanceCount || !warehouseCount || !movementCount) {
+      throw new InventoryServiceError(
+        'Dashboard analytics are temporarily unavailable.',
+        'INTERNAL_ERROR',
+        500,
+      )
+    }
+    const [trackedProductCandidates, balanceCandidates, warehouseCandidates, movementCandidates] = await Promise.all([
+      extensionCount.call(prisma.inventoryProductExtension, { where: extensionWhere }),
+      balanceCount.call(prisma.stockBalance, { where: balanceWhere }),
+      warehouseCount.call(prisma.warehouse, { where: warehouseWhere }),
+      movementCount.call(prisma.stockMovement, { where: movementWhere }),
+    ])
+    assertDashboardAggregationCapacity({
+      trackedProducts: trackedProductCandidates,
+      balances: balanceCandidates,
+      warehouses: warehouseCandidates,
+      movements: movementCandidates,
+    })
+
+    const [extensions, balances, warehouses, trendRecords, recentMovements, recentAdjustments] = await Promise.all([
+      prisma.inventoryProductExtension.findMany({
+        where: extensionWhere,
+        include: {
+          product: true,
+        },
+        orderBy: { productId: 'asc' },
+      }) as Promise<DashboardProductExtensionRecord[]>,
+      prisma.stockBalance.findMany({
+        where: balanceWhere,
+        include: {
+          product: {
+            include: {
+              inventoryExtension: true,
             },
           },
-        })
-      : null
+          warehouse: true,
+        },
+        orderBy: { id: 'asc' },
+      }),
+      prisma.warehouse.findMany({
+        where: warehouseWhere,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      }),
+      prisma.stockMovement.findMany({
+        where: movementWhere,
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      }),
+      canReadMovements
+        ? this.listStockMovements(ctx, { page: 1, pageSize: 5 })
+        : Promise.resolve([]),
+      canReadAdjustments
+        ? this.listStockAdjustments(ctx, { page: 1, pageSize: 5 })
+        : Promise.resolve([]),
+    ])
+
+    assertDashboardAggregationCapacity({
+      trackedProducts: extensions.length,
+      balances: balances.length,
+      warehouses: warehouses.length,
+      movements: trendRecords.length,
+    })
+
+    const stockSummary = buildDashboardStockSummary(extensions, balances, warehouses)
+    const movementTrend = buildMovementTrend(trendRecords, now)
 
     return {
-      summary: {
-        trackedProducts: trackedProducts ?? null,
-        lowStockProducts: canReadLevels ? stockLevels.filter((item) => item.isLowStock).length : null,
-        warehousesWithStock: canReadLevels
-          ? new Set(stockLevels.filter((item) => decimalToUnits(item.quantity) > 0n).map((item) => item.warehouseId)).size
-          : null,
+      ...stockSummary,
+      movementTrend: movementTrend.data,
+      movementRange: {
+        start: utcDateKey(movementTrend.start),
+        end: utcDateKey(addUtcDays(movementTrend.end, -1)),
+        timezone: 'UTC',
       },
       recentMovements,
       recentAdjustments,
@@ -435,11 +715,40 @@ export class InventoryService {
         category: true,
         inventoryExtension: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: [
+        query.sort === 'reorderPoint'
+          ? { inventoryExtension: { reorderPoint: query.direction ?? 'asc' } }
+          : { name: query.sort ? (query.direction ?? 'asc') : 'asc' },
+        { id: 'asc' },
+      ],
       ...pagination(query),
     })
 
     return products.map(productSettingDto)
+  }
+
+  static async listProductSettingsPage(
+    ctx: PlatformContext,
+    query: ProductSettingListQuery,
+  ): Promise<InventoryPage<InventoryProductSettingListItem>> {
+    await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.PRODUCT_SETTING_READ)
+    const prisma = getInventoryPrisma(ctx)
+    const where = activeProductWhere(ctx, query)
+    const count = prisma.product.count
+    if (!count) throw new InventoryServiceError('Pagination is temporarily unavailable.', 'INTERNAL_ERROR', 500)
+    const [rows, total] = await Promise.all([
+      this.listProductSettings(ctx, query),
+      count.call(prisma.product, { where }),
+    ])
+    return {
+      rows,
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: Math.ceil(total / query.pageSize),
+      },
+    }
   }
 
   static async upsertProductSetting(
@@ -510,7 +819,7 @@ export class InventoryService {
         orgId: ctx.org.id,
         ...(query.productId ? { productId: query.productId } : {}),
         ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
-        product: activeProductWhere(ctx, { search: query.search }),
+        product: activeProductWhere(ctx, { search: query.q ?? query.search }),
         warehouse: activeWarehouseWhere(ctx),
       },
       include: {
@@ -522,12 +831,17 @@ export class InventoryService {
         },
         warehouse: true,
       },
-      orderBy: [{ product: { name: 'asc' } }, { warehouse: { name: 'asc' } }],
+      orderBy: [
+        query.sort === 'warehouse'
+          ? { warehouse: { name: query.direction ?? 'asc' } }
+          : query.sort === 'quantity'
+            ? { quantity: query.direction ?? 'asc' }
+            : { product: { name: query.sort ? (query.direction ?? 'asc') : 'asc' } },
+        { id: 'asc' },
+      ],
       ...pagination(query),
     })
-    const items = records.map(stockLevelDto)
-
-    return query.lowStockOnly ? items.filter((item) => item.isLowStock) : items
+    return records.map(stockLevelDto)
   }
 
   static async getStockLevel(ctx: PlatformContext, id: string): Promise<StockLevelListItem> {
@@ -558,6 +872,36 @@ export class InventoryService {
     return stockLevelDto(record)
   }
 
+  static async listStockLevelsPage(
+    ctx: PlatformContext,
+    query: StockLevelQuery,
+  ): Promise<InventoryPage<StockLevelListItem>> {
+    await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.STOCK_LEVEL_READ)
+    const prisma = getInventoryPrisma(ctx)
+    const where = {
+      orgId: ctx.org.id,
+      ...(query.productId ? { productId: query.productId } : {}),
+      ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
+      product: activeProductWhere(ctx, { search: query.q ?? query.search }),
+      warehouse: activeWarehouseWhere(ctx),
+    }
+    const count = prisma.stockBalance.count
+    if (!count) throw new InventoryServiceError('Pagination is temporarily unavailable.', 'INTERNAL_ERROR', 500)
+    const [rows, total] = await Promise.all([
+      this.listStockLevels(ctx, query),
+      count.call(prisma.stockBalance, { where }),
+    ])
+    return {
+      rows,
+      meta: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        totalPages: Math.ceil(total / query.pageSize),
+      },
+    }
+  }
+
   static async listStockMovements(ctx: PlatformContext, query: StockMovementQuery): Promise<StockMovementListItem[]> {
     await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.STOCK_MOVEMENT_READ)
     const prisma = getInventoryPrisma(ctx)
@@ -575,7 +919,7 @@ export class InventoryService {
               },
             }
           : {}),
-        product: activeProductWhere(ctx, { search: query.search }),
+        product: activeProductWhere(ctx, { search: query.q ?? query.search }),
         warehouse: activeWarehouseWhere(ctx),
       },
       include: {
@@ -583,11 +927,74 @@ export class InventoryService {
         warehouse: true,
         actor: true,
       },
-      orderBy: { occurredAt: 'desc' },
+      orderBy: [
+        query.sort === 'product'
+          ? { product: { name: query.direction ?? 'asc' } }
+          : query.sort === 'quantity'
+            ? { quantityDelta: query.direction ?? 'asc' }
+            : { occurredAt: query.sort ? (query.direction ?? 'asc') : 'desc' },
+        { id: 'asc' },
+      ],
       ...pagination(query),
     })
 
     return records.map(movementDto)
+  }
+
+  static async getStockMovement(ctx: PlatformContext, id: string): Promise<StockMovementListItem> {
+    await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.STOCK_MOVEMENT_READ)
+    const prisma = getInventoryPrisma(ctx)
+    const record = await prisma.stockMovement.findFirst({
+      where: {
+        id,
+        orgId: ctx.org.id,
+        product: activeProductWhere(ctx),
+        warehouse: activeWarehouseWhere(ctx),
+      },
+      include: {
+        product: true,
+        warehouse: true,
+        actor: true,
+      },
+    })
+
+    if (!record) {
+      throw new InventoryServiceError('Stock movement was not found.', 'NOT_FOUND', 404)
+    }
+
+    return movementDto(record)
+  }
+
+  static async listStockMovementsPage(
+    ctx: PlatformContext,
+    query: StockMovementQuery,
+  ): Promise<InventoryPage<StockMovementListItem>> {
+    await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.STOCK_MOVEMENT_READ)
+    const prisma = getInventoryPrisma(ctx)
+    const where = {
+      orgId: ctx.org.id,
+      ...(query.productId ? { productId: query.productId } : {}),
+      ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
+      ...(query.type ? { type: query.type } : {}),
+      ...(query.from || query.to
+        ? { occurredAt: {
+            ...(query.from ? { gte: new Date(query.from) } : {}),
+            ...(query.to ? { lte: new Date(query.to) } : {}),
+          } }
+        : {}),
+      product: activeProductWhere(ctx, { search: query.q ?? query.search }),
+      warehouse: activeWarehouseWhere(ctx),
+    }
+    const count = prisma.stockMovement.count
+    if (!count) throw new InventoryServiceError('Pagination is temporarily unavailable.', 'INTERNAL_ERROR', 500)
+    const [rows, total] = await Promise.all([
+      this.listStockMovements(ctx, query),
+      count.call(prisma.stockMovement, { where }),
+    ])
+    return {
+      rows,
+      meta: { page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) },
+    }
   }
 
   static async listStockAdjustments(
@@ -602,7 +1009,7 @@ export class InventoryService {
         deletedAt: null,
         ...(query.productId ? { productId: query.productId } : {}),
         ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
-        product: activeProductWhere(ctx, { search: query.search }),
+        product: activeProductWhere(ctx, { search: query.q ?? query.search }),
         warehouse: activeWarehouseWhere(ctx),
       },
       include: {
@@ -610,7 +1017,14 @@ export class InventoryService {
         warehouse: true,
         actor: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        query.sort === 'product'
+          ? { product: { name: query.direction ?? 'asc' } }
+          : query.sort === 'quantity'
+            ? { quantityDelta: query.direction ?? 'asc' }
+            : { createdAt: query.sort ? (query.direction ?? 'asc') : 'desc' },
+        { id: 'asc' },
+      ],
       ...pagination(query),
     })
 
@@ -640,6 +1054,32 @@ export class InventoryService {
     }
 
     return adjustmentDto(record)
+  }
+
+  static async listStockAdjustmentsPage(
+    ctx: PlatformContext,
+    query: StockAdjustmentQuery,
+  ): Promise<InventoryPage<StockAdjustmentListItem>> {
+    await requireInventoryPermission(ctx, INVENTORY_PERMISSIONS.STOCK_ADJUSTMENT_READ)
+    const prisma = getInventoryPrisma(ctx)
+    const where = {
+      orgId: ctx.org.id,
+      deletedAt: null,
+      ...(query.productId ? { productId: query.productId } : {}),
+      ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
+      product: activeProductWhere(ctx, { search: query.q ?? query.search }),
+      warehouse: activeWarehouseWhere(ctx),
+    }
+    const count = prisma.stockAdjustment.count
+    if (!count) throw new InventoryServiceError('Pagination is temporarily unavailable.', 'INTERNAL_ERROR', 500)
+    const [rows, total] = await Promise.all([
+      this.listStockAdjustments(ctx, query),
+      count.call(prisma.stockAdjustment, { where }),
+    ])
+    return {
+      rows,
+      meta: { page: query.page, pageSize: query.pageSize, total, totalPages: Math.ceil(total / query.pageSize) },
+    }
   }
 
   static async getStockAdjustmentFormOptions(ctx: PlatformContext): Promise<StockAdjustmentFormOptions> {

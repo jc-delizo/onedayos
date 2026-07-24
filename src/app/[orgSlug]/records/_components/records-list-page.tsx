@@ -4,6 +4,10 @@ import { Surface } from '@/components/ui/surface'
 import { DataTable, EmptyState, ListPage, type DataTableColumn } from '@/components/onedayos'
 import type { RecordAreaConfig } from './records-config'
 import { RecordsShell } from './records-shell'
+import { RecordsDataTable, type RecordTableRow } from './records-data-table'
+import type { DataTablePageMeta, DataTableQueryState } from '@/components/onedayos'
+
+export type RecordsPageContext = 'shared-records' | 'inventory'
 
 export function RecordsListPage<T>({
   orgSlug,
@@ -13,6 +17,9 @@ export function RecordsListPage<T>({
   getRowId,
   canCreate = true,
   rowActions,
+  context = 'shared-records',
+  secondaryActions,
+  v2,
 }: {
   orgSlug: string
   area: RecordAreaConfig
@@ -21,31 +28,61 @@ export function RecordsListPage<T>({
   getRowId: (row: T) => string
   canCreate?: boolean
   rowActions?: (row: T) => ReactNode
+  context?: RecordsPageContext
+  secondaryActions?: ReactNode
+  v2?: {
+    rows: RecordTableRow[]
+    canUpdate: boolean
+    canExport: boolean
+    exportEndpoint: string
+    query: DataTableQueryState
+    pageMeta: DataTablePageMeta
+  }
 }) {
+  const baseHref = context === 'inventory'
+    ? `/${orgSlug}/inventory/related/${area.id}`
+    : `/${orgSlug}/records/${area.id}`
   const contextualHelp = area.id === 'employees'
     ? 'People administration lives in Organization / People. This direct Employee surface is a shared-record view, not an Inventory or HR module.'
-    : undefined
+    : context === 'inventory'
+      ? area.inventoryOwnership
+      : 'Shared Records are organization-wide business identities reused by enabled apps.'
 
   return (
     <RecordsShell orgSlug={orgSlug} activeArea={area.id}>
       <ListPage
-        breadcrumb={`Shared Records / ${area.label}`}
+        breadcrumb={context === 'inventory' ? `Inventory / Related Records / ${area.label}` : `Shared Records / ${area.label}`}
         title={area.label}
-        description={area.description}
+        headerMode="compact"
         primaryAction={
           canCreate ? (
-            <LinkButton href={`/${orgSlug}/records/${area.id}/new`} variant="primary">New {area.singular}</LinkButton>
+            <LinkButton href={`${baseHref}/new`} variant="primary">New {area.singular}</LinkButton>
           ) : undefined
         }
+        secondaryActions={secondaryActions}
         contextualHelp={contextualHelp}
       >
         <Surface className="p-4">
-          <DataTable
-            columns={columns}
-            rows={rows}
-            getRowId={getRowId}
-            rowActions={rowActions}
-            emptyState={
+          {v2 ? (
+            <RecordsDataTable
+              tableId={`objects.${area.id}`}
+              areaId={area.id}
+              rows={v2.rows}
+              baseHref={baseHref}
+              singular={area.singular}
+              canUpdate={v2.canUpdate}
+              canExport={v2.canExport}
+              exportEndpoint={v2.exportEndpoint}
+              query={v2.query}
+              pageMeta={v2.pageMeta}
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={rows}
+              getRowId={getRowId}
+              rowActions={rowActions}
+              emptyState={
               <EmptyState
                 title={`No ${area.label.toLowerCase()} yet`}
                 description={
@@ -55,12 +92,13 @@ export function RecordsListPage<T>({
                 }
                 action={
                   canCreate ? (
-                    <LinkButton href={`/${orgSlug}/records/${area.id}/new`} size="sm" variant="primary">New {area.singular}</LinkButton>
+                    <LinkButton href={`${baseHref}/new`} size="sm" variant="primary">New {area.singular}</LinkButton>
                   ) : undefined
                 }
               />
-            }
-          />
+              }
+            />
+          )}
         </Surface>
       </ListPage>
     </RecordsShell>

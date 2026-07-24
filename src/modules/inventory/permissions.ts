@@ -29,6 +29,13 @@ export const INVENTORY_PERMISSIONS = {
     label: 'View stock levels',
     description: 'Allows the user to view current stock levels by shared Product and Warehouse.',
   },
+  STOCK_LEVEL_EXPORT: {
+    module: 'inventory',
+    resource: 'stock_level',
+    action: 'export',
+    label: 'Export stock levels',
+    description: 'Allows bounded server-side export of authorized stock levels.',
+  },
   STOCK_MOVEMENT_READ: {
     module: 'inventory',
     resource: 'stock_movement',
@@ -36,12 +43,26 @@ export const INVENTORY_PERMISSIONS = {
     label: 'View stock movements',
     description: 'Allows the user to view the immutable inventory movement ledger.',
   },
+  STOCK_MOVEMENT_EXPORT: {
+    module: 'inventory',
+    resource: 'stock_movement',
+    action: 'export',
+    label: 'Export stock movements',
+    description: 'Allows bounded server-side export of authorized stock movements.',
+  },
   STOCK_ADJUSTMENT_READ: {
     module: 'inventory',
     resource: 'stock_adjustment',
     action: 'read',
     label: 'View stock adjustments',
     description: 'Allows the user to view posted manual stock adjustments.',
+  },
+  STOCK_ADJUSTMENT_EXPORT: {
+    module: 'inventory',
+    resource: 'stock_adjustment',
+    action: 'export',
+    label: 'Export stock adjustments',
+    description: 'Allows bounded server-side export of authorized stock adjustments.',
   },
   STOCK_ADJUSTMENT_CREATE: {
     module: 'inventory',

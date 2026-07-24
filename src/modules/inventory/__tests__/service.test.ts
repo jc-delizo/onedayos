@@ -112,10 +112,12 @@ function makePrisma() {
     product: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
     warehouse: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
     inventoryProductExtension: {
       findMany: vi.fn(),
@@ -127,6 +129,7 @@ function makePrisma() {
     stockBalance: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -175,6 +178,91 @@ describe('InventoryService', () => {
         }),
       }),
     )
+  })
+
+  it('returns truthful Stock Level pages above 100 with tenant-scoped counts and no candidate cap', async () => {
+    const prisma = makePrisma()
+    const fixtures = Array.from({ length: 155 }, (_, index) => ({
+      id: `balance_${String(index + 1).padStart(3, '0')}`,
+      productId: `product_${String(index + 1).padStart(3, '0')}`,
+      warehouseId: index % 2 === 0 ? 'warehouse_a' : 'warehouse_b',
+      quantity: String(index === 139 ? 0 : index + 1),
+      updatedAt: new Date('2026-07-08T00:00:00.000Z'),
+      product: {
+        ...makeProduct(`product_${String(index + 1).padStart(3, '0')}`),
+        code: `SKU-${String(index + 1).padStart(3, '0')}`,
+        name: index === 139 ? 'Scale Needle Product' : `Product ${String(index + 1).padStart(3, '0')}`,
+        inventoryExtension: { reorderPoint: '5', isStockTracked: true },
+      },
+      warehouse: makeWarehouse(index % 2 === 0 ? 'warehouse_a' : 'warehouse_b'),
+    }))
+    const matchingRows = (args: unknown) => {
+      const query = args as {
+        where: {
+          warehouseId?: string
+          product?: { OR?: Array<Record<string, { contains: string }>> }
+        }
+      }
+      const needle = query.where.product?.OR?.map((clause) => Object.values(clause)[0]?.contains).find(Boolean)
+      return fixtures.filter((row) => (
+        (!query.where.warehouseId || row.warehouseId === query.where.warehouseId)
+        && (!needle || `${row.product.code} ${row.product.name}`.toLowerCase().includes(needle.toLowerCase()))
+      ))
+    }
+    prisma.stockBalance.findMany.mockImplementation(async (args) => {
+      const query = args as { skip: number; take: number }
+      return matchingRows(args).slice(query.skip, query.skip + query.take)
+    })
+    prisma.stockBalance.count.mockImplementation(async (args) => matchingRows(args).length)
+    mockGetDb.mockReturnValue({ orgId: 'org_a', prisma })
+
+    const pageTwo = await InventoryService.listStockLevelsPage(makeCtx('org_a'), {
+      page: 2,
+      pageSize: 50,
+    })
+    const warehousePageTwo = await InventoryService.listStockLevelsPage(makeCtx('org_a'), {
+      page: 2,
+      pageSize: 50,
+      warehouseId: 'warehouse_a',
+    })
+    const beyondOneHundred = await InventoryService.listStockLevelsPage(makeCtx('org_a'), {
+      q: 'Scale Needle',
+      page: 1,
+      pageSize: 25,
+    })
+
+    expect(pageTwo.meta).toEqual({ page: 2, pageSize: 50, total: 155, totalPages: 4 })
+    expect(pageTwo.rows).toHaveLength(50)
+    expect(warehousePageTwo.meta).toEqual({ page: 2, pageSize: 50, total: 78, totalPages: 2 })
+    expect(warehousePageTwo.rows).toHaveLength(28)
+    expect(beyondOneHundred.rows.map((row) => row.id)).toEqual(['balance_140'])
+    expect(beyondOneHundred.meta).toEqual({ page: 1, pageSize: 25, total: 1, totalPages: 1 })
+    expect(prisma.stockBalance.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        orgId: 'org_a',
+        product: expect.objectContaining({ orgId: 'org_a', deletedAt: null }),
+        warehouse: expect.objectContaining({ orgId: 'org_a', deletedAt: null }),
+      }),
+    })
+  })
+
+  it('fails the bounded Warehouse filter lookup honestly instead of truncating options', async () => {
+    const prisma = makePrisma()
+    prisma.warehouse.count.mockResolvedValue(251)
+    mockGetDb.mockReturnValue({ orgId: 'org_a', prisma })
+
+    await expect(
+      InventoryService.listWarehouseFilterOptions(makeCtx('org_a'), INVENTORY_PERMISSIONS.STOCK_LEVEL_READ),
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'There are too many warehouses to build this filter safely. Contact an administrator.',
+    })
+
+    expect(prisma.warehouse.findMany).not.toHaveBeenCalled()
+    expect(prisma.warehouse.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ orgId: 'org_a', deletedAt: null, isActive: true }),
+    })
   })
 
   it('does not write when permission is denied', async () => {

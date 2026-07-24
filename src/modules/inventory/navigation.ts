@@ -17,13 +17,6 @@ export const inventoryNavigation = [
     requiredPermission: INVENTORY_PERMISSIONS.DASHBOARD_READ,
   },
   {
-    key: 'inventory.product-settings',
-    label: 'Product Settings',
-    href: '/inventory/product-settings',
-    icon: 'Settings2',
-    requiredPermission: INVENTORY_PERMISSIONS.PRODUCT_SETTING_READ,
-  },
-  {
     key: 'inventory.stock-levels',
     label: 'Stock Levels',
     href: '/inventory/stock-levels',

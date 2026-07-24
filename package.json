@@ -22,7 +22,7 @@
     "check:architecture": "tsx scripts/check-architecture.ts",
     "check:generated": "tsx scripts/check-generated.ts",
     "check:ux": "tsx scripts/check-ux.ts",
-    "test:a11y": "vitest run src/components/onedayos/patterns/__tests__/accessibility.test.tsx src/modules/inventory/__tests__/accessibility.test.tsx",
+    "test:a11y": "vitest run src/components/onedayos/patterns/__tests__/accessibility.test.tsx src/components/onedayos/data-table/__tests__/accessibility.test.tsx src/components/onedayos/modal/__tests__/accessibility.test.tsx src/components/onedayos/charts/__tests__/accessibility.test.tsx src/modules/inventory/__tests__/accessibility.test.tsx",
     "demo:provision": "tsx scripts/provision-sandbox-demo.ts",
     "demo:check": "tsx scripts/check-demo-readiness.ts",
     "demo:reset": "tsx scripts/reset-sandbox-demo.ts",
@@ -31,16 +31,20 @@
     "check:all": "npm run check:env && npm run check:prisma && npm run lint && npm run typecheck && npm run check:architecture && npm run check:generated && npm run check:ux && npm run test:run && npm run test:a11y && npm run build"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "7.8.0",
-    "@prisma/client": "7.8.0",
+    "@prisma/adapter-pg": "7.9.0",
+    "@prisma/client": "7.9.0",
+    "@radix-ui/react-dialog": "1.1.21",
     "@supabase/ssr": "0.12.0",
     "@supabase/supabase-js": "2.110.1",
+    "@tanstack/react-table": "8.21.3",
     "clsx": "^2.1.1",
+    "exceljs": "4.4.0",
     "lucide-react": "1.25.0",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "pg": "8.22.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "recharts": "3.10.0",
     "server-only": "0.0.1",
     "tailwind-merge": "^3.6.0",
     "zod": "4.4.3"
@@ -57,18 +61,25 @@
     "axe-core": "4.12.1",
     "dotenv": "17.4.2",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.11",
     "jiti": "2.6.1",
     "jsdom": "^29.1.1",
-    "prisma": "7.8.0",
+    "prisma": "7.9.0",
     "tailwindcss": "4.3.2",
     "tsx": "4.23.0",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
   "overrides": {
-    "@prisma/dev": {
-      "@hono/node-server": "1.19.13"
+    "next@16.2.11": {
+      "postcss": "8.5.18",
+      "sharp": "0.35.3"
+    },
+    "@prisma/dev@0.24.14": {
+      "find-my-way": "9.7.0"
+    },
+    "exceljs": {
+      "uuid": "11.1.1"
     }
   }
 }

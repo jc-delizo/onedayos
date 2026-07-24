@@ -47,7 +47,7 @@ describe('inventory UX contract', () => {
   })
 
   it('keeps related Business Objects separate from Inventory-owned records', () => {
-    expect(inventoryUx.relatedBusinessObjects).toEqual(['Product', 'ProductCategory', 'Supplier', 'Warehouse'])
+    expect(inventoryUx.relatedBusinessObjects).toEqual(['Product', 'ProductCategory', 'Customer', 'Supplier', 'Warehouse'])
     expect(inventoryUx.moduleOwnedRecords).toEqual([
       'InventoryProductExtension',
       'StockBalance',

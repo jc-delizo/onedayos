@@ -1,19 +1,47 @@
 import { sdk } from '@/sdk/server'
-import { DashboardMetric, DashboardPage, DataTable, EmptyState, SectionHeader } from '@/components/onedayos'
+import {
+  DashboardMetric,
+  DashboardPage,
+  DataTable,
+  EmptyState,
+  SafePageErrorState,
+  SectionHeader,
+} from '@/components/onedayos'
 import { LinkButton } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Surface } from '@/components/ui/surface'
-import { InventoryService } from '@/modules/inventory/service'
+import { InventoryService, isInventoryServiceError } from '@/modules/inventory/service'
+import {
+  MovementTrendChart,
+  StockHealthChart,
+  WarehouseStockChart,
+} from './_components/inventory-dashboard-charts'
 import { InventoryShell } from './_components/inventory-shell'
 
 export default async function InventoryPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params
   const ctx = await sdk.auth.requirePageModuleContext(orgSlug, 'inventory')
-  const dashboard = await InventoryService.getDashboard(ctx)
+  let dashboard: Awaited<ReturnType<typeof InventoryService.getDashboard>>
+  try {
+    dashboard = await InventoryService.getDashboard(ctx)
+  } catch (error) {
+    if (isInventoryServiceError(error) && error.status === 422) {
+      return (
+        <InventoryShell orgSlug={orgSlug} activeItem="overview">
+          <SafePageErrorState
+            title="Dashboard analytics need a narrower scope"
+            message="The current organization exceeds the exact Dashboard processing limit. Narrow the operational scope or contact an administrator while aggregate optimization is prepared."
+          />
+        </InventoryShell>
+      )
+    }
+    throw error
+  }
   const summaryMetrics = [
-    ['Tracked Products', dashboard.summary.trackedProducts],
-    ['Low Stock Products', dashboard.summary.lowStockProducts],
-    ['Warehouses With Stock', dashboard.summary.warehousesWithStock],
+    ['Tracked Products', dashboard.kpis.trackedProducts, 'Products with active Inventory Tracking.'],
+    ['Low Stock', dashboard.kpis.lowStockProducts, 'Tracked Products above zero and at or below reorder point.'],
+    ['Out of Stock', dashboard.kpis.outOfStockProducts, 'Tracked Products with zero organization-wide quantity.'],
+    ['Warehouses with Stock', dashboard.kpis.warehousesWithStock, 'Active Warehouses holding a positive tracked balance.'],
   ] as const
 
   return (
@@ -21,33 +49,40 @@ export default async function InventoryPage({ params }: { params: Promise<{ orgS
       <DashboardPage
         breadcrumb="Inventory / Dashboard"
         title="Inventory Overview"
-        description="Current tracked stock, low-stock pressure, and recent inventory activity."
+        headerMode="compact"
         primaryAction={<LinkButton href={`/${orgSlug}/inventory/stock-adjustments/new`} variant="primary">New Adjustment</LinkButton>}
         metrics={
           <>
-            {summaryMetrics.map(([label, value]) => (
-            <DashboardMetric key={label} label={label} value={typeof value === 'number' ? value : 'Restricted'} />
+            {summaryMetrics.map(([label, value, description]) => (
+            <DashboardMetric key={label} label={label} value={value} description={description} />
             ))}
           </>
         }
         primaryContent={
-          <Surface className="p-4">
-            <SectionHeader title="Recent Movements" description="Latest immutable stock ledger entries." />
-            <div className="mt-4">
-              <DataTable
-                columns={[
-                  { id: 'product', header: 'Product', cell: (row) => row.productName },
-                  { id: 'warehouse', header: 'Warehouse', cell: (row) => row.warehouseName },
-                  { id: 'type', header: 'Type', cell: (row) => <StatusBadge variant="info">{row.type}</StatusBadge> },
-                  { id: 'delta', header: 'Delta', cell: (row) => row.quantityDelta },
-                  { id: 'date', header: 'Date', cell: (row) => new Date(row.occurredAt).toLocaleDateString() },
-                ]}
-                rows={dashboard.recentMovements}
-                getRowId={(row) => row.id}
-                emptyState={<EmptyState title="No stock movements yet" description="Movements appear after stock adjustments are posted." />}
-              />
-            </div>
-          </Surface>
+          <div className="space-y-4">
+            <section aria-label="Inventory charts" className="grid min-w-0 gap-4 xl:grid-cols-2">
+              <StockHealthChart data={dashboard.stockHealth} />
+              <MovementTrendChart data={dashboard.movementTrend} range={dashboard.movementRange} />
+            </section>
+            <WarehouseStockChart data={dashboard.warehouseStock} />
+            <Surface className="p-4">
+              <SectionHeader title="Recent Movements" description="Latest immutable stock ledger entries." />
+              <div className="mt-4">
+                <DataTable
+                  columns={[
+                    { id: 'product', header: 'Product', cell: (row) => row.productName },
+                    { id: 'warehouse', header: 'Warehouse', cell: (row) => row.warehouseName },
+                    { id: 'type', header: 'Type', cell: (row) => <StatusBadge variant="info">{row.type}</StatusBadge> },
+                    { id: 'delta', header: 'Delta', cell: (row) => row.quantityDelta },
+                    { id: 'date', header: 'Date', cell: (row) => new Date(row.occurredAt).toLocaleDateString() },
+                  ]}
+                  rows={dashboard.recentMovements}
+                  getRowId={(row) => row.id}
+                  emptyState={<EmptyState title="No stock movements yet" description="Movements appear after stock adjustments are posted." />}
+                />
+              </div>
+            </Surface>
+          </div>
         }
         secondaryContent={
           <Surface className="p-4">
