@@ -1636,6 +1636,20 @@ export function checkUx(root: string): UxFinding[] {
   checkRoleBasedUxValidationPreparation(root, findings)
   checkControlledDemoPreparation(root, findings)
 
+  if (existsSync(join(root, 'src/modules/inventory/transactions'))) {
+    const navigationPath = join(root, 'src/modules/inventory/navigation.ts')
+    const navigationSource = readIfExists(navigationPath) ?? ''
+    if (navigationSource.includes('/inventory/transactions')) {
+      addFinding(
+        findings,
+        root,
+        navigationPath,
+        'premature-inventory-v2-navigation',
+        'V2-6C must not expose transaction navigation before V2-6D cutover.',
+      )
+    }
+  }
+
   return findings
 }
 

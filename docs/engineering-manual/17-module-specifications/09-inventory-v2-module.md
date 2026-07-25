@@ -4,6 +4,13 @@ Status: Frozen
 Implementation Timing: V2-6
 Implementation Allowed: Only through the approved V2-6 implementation package
 
+## Founder Clarification — 2026-07-25
+
+V2-6 create requests contain 1–100 lines. Reversal is server-derived: Receipt/Issue retain their
+Warehouse and applicable party, Transfer swaps Warehouses, and Adjustment stores the computed
+post-reversal counted-final quantity derived from inverse canonical movement effects. The client
+submits only reversal reason plus the required idempotency header.
+
 ## Purpose
 
 Inventory V2 should make the demo feel like an operational inventory system while preserving OneDayOS boundaries. Inventory owns stock behavior. Shared Business Objects remain shared.

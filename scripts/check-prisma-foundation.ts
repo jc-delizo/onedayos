@@ -53,15 +53,19 @@ requireText(preflight, 'prisma.stockMovement.findMany', 'preflight must read leg
 requireText(preflight, 'prisma.stockBalance.findMany', 'preflight must reconcile final stock balances')
 requireText(preflight, 'findMany', 'preflight must use read-only queries')
 
-for (const runtimeRoot of ['src/app', 'src/modules/inventory', 'src/kernel']) {
-  const files = readdirSync(join(root, runtimeRoot), { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && /\.(?:ts|tsx)$/.test(entry.name))
-  for (const file of files) {
-    const path = join(file.parentPath, file.name)
-    if (/\bInventoryTransaction(?:Line|Type|Status)?\b/.test(readFileSync(path, 'utf8'))) {
-      failures.push(`V2-6C runtime cutover is not allowed in V2-6B: ${path.replace(`${root}/`, '')}`)
-    }
-  }
+const serverEnv = readFileSync(join(root, 'src/kernel/env/server.ts'), 'utf8')
+requireText(
+  serverEnv,
+  'ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED: createBooleanEnvSchema(false)',
+  'V2-6C runtime flag must remain server-only and default false',
+)
+const v2Routes = readFileSync(join(root, 'src/modules/inventory/transactions/routes.ts'), 'utf8')
+if (v2Routes.indexOf('sdk.runtime.requireInventoryV2()') > v2Routes.indexOf('requireApiModuleContext')) {
+  failures.push('V2-6C API runtime gate must execute before organization/module context and database access')
+}
+const inventoryNavigation = readFileSync(join(root, 'src/modules/inventory/navigation.ts'), 'utf8')
+if (inventoryNavigation.includes('/inventory/transactions')) {
+  failures.push('V2-6C must not expose V2 transaction navigation before V2-6D')
 }
 
 if (failures.length) {

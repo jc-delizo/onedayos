@@ -45,8 +45,8 @@ No unresolved authority conflict remains. Prisma 7 serializable behavior and exa
 | V2-6 Test Matrix | Frozen |
 | Combined V2-6 handoff | Superseded |
 | V2-6B handoff | Ready for Founder Approval; not authorized |
-| V2-6C handoff | Blocked |
-| V2-6D handoff | Blocked |
+| V2-6C handoff | Founder Accepted on 2026-07-25 |
+| V2-6D handoff | Ready for Founder Approval; not authorized |
 
 ## Migration Safety Boundary
 
@@ -54,4 +54,8 @@ V2-6B may prepare additive schema, migration, read-only dry-run/backfill tooling
 
 ## Readiness
 
-V2-6 governance is frozen. V2-6B is the only next package eligible for explicit Founder authorization. V2-6C, V2-6D, V2-7, and V2-8 remain blocked. Public self-service demo approval and production readiness are unclaimed. Website asset production remains paused.
+V2-6 governance remains frozen. V2-6B and V2-6C are Founder Accepted. V2-6D is the only next
+package eligible for explicit Founder/operator authorization, but remains unauthorized. Controlled
+sandbox migration/backfill/provisioning/runtime enablement and cutover remain blocked. V2-7 and
+V2-8 remain blocked. Public self-service demo approval and production readiness are unclaimed.
+Website asset production remains paused.

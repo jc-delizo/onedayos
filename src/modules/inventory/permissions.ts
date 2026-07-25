@@ -71,4 +71,56 @@ export const INVENTORY_PERMISSIONS = {
     label: 'Create stock adjustments',
     description: 'Allows the user to create posted manual stock adjustments.',
   },
+  RECEIPT_READ: {
+    module: 'inventory', resource: 'receipt', action: 'read',
+    label: 'View inventory receipts', description: 'Allows the user to view posted inventory receipts.',
+  },
+  RECEIPT_CREATE: {
+    module: 'inventory', resource: 'receipt', action: 'create',
+    label: 'Post inventory receipts', description: 'Allows the user to post inventory receipts.',
+  },
+  RECEIPT_REVERSE: {
+    module: 'inventory', resource: 'receipt', action: 'reverse',
+    label: 'Reverse inventory receipts', description: 'Allows the user to reverse posted inventory receipts.',
+  },
+  ISSUE_READ: {
+    module: 'inventory', resource: 'issue', action: 'read',
+    label: 'View inventory issues', description: 'Allows the user to view posted inventory issues.',
+  },
+  ISSUE_CREATE: {
+    module: 'inventory', resource: 'issue', action: 'create',
+    label: 'Post inventory issues', description: 'Allows the user to post inventory issues.',
+  },
+  ISSUE_REVERSE: {
+    module: 'inventory', resource: 'issue', action: 'reverse',
+    label: 'Reverse inventory issues', description: 'Allows the user to reverse posted inventory issues.',
+  },
+  TRANSFER_READ: {
+    module: 'inventory', resource: 'transfer', action: 'read',
+    label: 'View inventory transfers', description: 'Allows the user to view posted inventory transfers.',
+  },
+  TRANSFER_CREATE: {
+    module: 'inventory', resource: 'transfer', action: 'create',
+    label: 'Post inventory transfers', description: 'Allows the user to post inventory transfers.',
+  },
+  TRANSFER_REVERSE: {
+    module: 'inventory', resource: 'transfer', action: 'reverse',
+    label: 'Reverse inventory transfers', description: 'Allows the user to reverse posted inventory transfers.',
+  },
+  ADJUSTMENT_READ: {
+    module: 'inventory', resource: 'adjustment', action: 'read',
+    label: 'View canonical adjustments', description: 'Allows the user to view canonical inventory adjustments.',
+  },
+  ADJUSTMENT_CREATE: {
+    module: 'inventory', resource: 'adjustment', action: 'create',
+    label: 'Post canonical adjustments', description: 'Allows the user to post canonical inventory adjustments.',
+  },
+  ADJUSTMENT_REVERSE: {
+    module: 'inventory', resource: 'adjustment', action: 'reverse',
+    label: 'Reverse canonical adjustments', description: 'Allows the user to reverse canonical inventory adjustments.',
+  },
+  TRANSACTION_EXPORT: {
+    module: 'inventory', resource: 'transaction', action: 'export',
+    label: 'Export inventory transactions', description: 'Allows bounded export of authorized inventory transactions.',
+  },
 } as const satisfies Record<string, ModulePermissionDefinition>

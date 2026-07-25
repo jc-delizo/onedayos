@@ -26,6 +26,11 @@ export const inventoryEvents = {
     name: 'inventory.stock_level.reorder_threshold_crossed',
     description: 'Stock level crossed below the configured reorder threshold.',
   },
+  receiptPosted: { name: 'inventory.receipt.posted', description: 'A canonical inventory receipt was posted.' },
+  issuePosted: { name: 'inventory.issue.posted', description: 'A canonical inventory issue was posted.' },
+  transferPosted: { name: 'inventory.transfer.posted', description: 'A canonical inventory transfer was posted.' },
+  adjustmentPosted: { name: 'inventory.adjustment.posted', description: 'A canonical inventory adjustment was posted.' },
+  transactionReversed: { name: 'inventory.transaction.reversed', description: 'A canonical inventory transaction was reversed.' },
   manifest: {
     emits: [
       {
@@ -52,6 +57,11 @@ export const inventoryEvents = {
         name: 'inventory.stock_level.reorder_threshold_crossed',
         description: 'Stock level crossed below the configured reorder threshold.',
       },
+      { name: 'inventory.receipt.posted', description: 'A canonical inventory receipt was posted.' },
+      { name: 'inventory.issue.posted', description: 'A canonical inventory issue was posted.' },
+      { name: 'inventory.transfer.posted', description: 'A canonical inventory transfer was posted.' },
+      { name: 'inventory.adjustment.posted', description: 'A canonical inventory adjustment was posted.' },
+      { name: 'inventory.transaction.reversed', description: 'A canonical inventory transaction was reversed.' },
     ],
     listens: [
       {
@@ -103,6 +113,18 @@ export const reorderThresholdCrossedPayloadSchema = z.strictObject({
   reorderPoint: z.string().min(1),
 })
 
+const transactionPostedPayloadSchema = z.strictObject({
+  transactionId: z.string().min(1),
+  transactionNumber: z.string().min(1),
+  lineCount: z.number().int().min(1).max(100),
+})
+
+const transactionReversedPayloadSchema = z.strictObject({
+  transactionId: z.string().min(1),
+  reversalOfTransactionId: z.string().min(1),
+  transactionNumber: z.string().min(1),
+})
+
 export const inventoryEventPayloadSchemas = {
   [inventoryEvents.productExtensionCreated.name]: productExtensionPayloadSchema,
   [inventoryEvents.productExtensionUpdated.name]: productExtensionPayloadSchema,
@@ -110,6 +132,11 @@ export const inventoryEventPayloadSchemas = {
   [inventoryEvents.stockMovementCreated.name]: stockMovementCreatedPayloadSchema,
   [inventoryEvents.stockBalanceUpdated.name]: stockBalanceUpdatedPayloadSchema,
   [inventoryEvents.reorderThresholdCrossed.name]: reorderThresholdCrossedPayloadSchema,
+  [inventoryEvents.receiptPosted.name]: transactionPostedPayloadSchema,
+  [inventoryEvents.issuePosted.name]: transactionPostedPayloadSchema,
+  [inventoryEvents.transferPosted.name]: transactionPostedPayloadSchema,
+  [inventoryEvents.adjustmentPosted.name]: transactionPostedPayloadSchema,
+  [inventoryEvents.transactionReversed.name]: transactionReversedPayloadSchema,
 } as const
 
 export const inventoryEventManifest: ModuleEventContract = {

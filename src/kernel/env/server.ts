@@ -16,6 +16,7 @@ const serverEnvSchema = z.strictObject({
   ONEDAYOS_DEMO_MODE: createBooleanEnvSchema(false),
   ONEDAYOS_PUBLIC_REGISTRATION_ENABLED: createBooleanEnvSchema(true),
   ONEDAYOS_DEMO_RESET_APPROVED: createBooleanEnvSchema(false),
+  ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED: createBooleanEnvSchema(false),
 })
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>
@@ -34,6 +35,7 @@ function readServerEnvInput() {
     ONEDAYOS_DEMO_MODE: process.env.ONEDAYOS_DEMO_MODE,
     ONEDAYOS_PUBLIC_REGISTRATION_ENABLED: process.env.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED,
     ONEDAYOS_DEMO_RESET_APPROVED: process.env.ONEDAYOS_DEMO_RESET_APPROVED,
+    ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED: process.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED,
   }
 }
 
@@ -82,5 +84,11 @@ export function getDemoRuntimeConfig() {
   return {
     demoMode: env.ONEDAYOS_DEMO_MODE,
     publicRegistrationEnabled: env.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED,
+  }
+}
+
+export function getInventoryV2RuntimeConfig() {
+  return {
+    enabled: getServerEnv().ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED,
   }
 }

@@ -315,6 +315,45 @@ export function checkArchitecture(root: string): Finding[] {
     }
   }
 
+  const v2Root = join(root, 'src/modules/inventory/transactions')
+  if (existsSync(v2Root)) {
+    const envSource = readFileSync(join(root, 'src/kernel/env/server.ts'), 'utf8')
+    if (!/ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED:\s*createBooleanEnvSchema\(false\)/.test(envSource)) {
+      findings.push({ file: 'src/kernel/env/server.ts', rule: 'inventory-v2-runtime-default', detail: 'Inventory V2 runtime must default false.' })
+    }
+    const routeRoot = join(root, 'src/app/api/orgs/[orgSlug]/inventory/transactions')
+    const sharedRouteSource = readFileSync(join(v2Root, 'routes.ts'), 'utf8')
+    if (sharedRouteSource.indexOf('sdk.runtime.requireInventoryV2()') > sharedRouteSource.indexOf('requireApiModuleContext')) {
+      findings.push({ file: 'src/modules/inventory/transactions/routes.ts', rule: 'inventory-v2-runtime-before-context', detail: 'Shared type routes must gate runtime before context and database access.' })
+    }
+    for (const routeFile of listFiles(root, routeRoot).filter((file) => file.endsWith('route.ts'))) {
+      const source = readFileSync(routeFile, 'utf8')
+      if (!source.includes('listTransactions(') && !source.includes('postTransaction(')) {
+        const gate = source.indexOf('sdk.runtime.requireInventoryV2()')
+        const context = source.indexOf('requireApiModuleContext')
+        if (gate < 0 || context < 0 || gate > context) {
+          findings.push({
+            file: normalizePath(relative(root, routeFile)),
+            rule: 'inventory-v2-runtime-before-context',
+            detail: 'Inventory V2 routes must gate runtime before context and database access.',
+          })
+        }
+      }
+    }
+    const permissionSource = readFileSync(join(root, 'src/modules/inventory/permissions.ts'), 'utf8')
+    for (const permission of [
+      "resource: 'receipt', action: 'read'", "resource: 'receipt', action: 'create'", "resource: 'receipt', action: 'reverse'",
+      "resource: 'issue', action: 'read'", "resource: 'issue', action: 'create'", "resource: 'issue', action: 'reverse'",
+      "resource: 'transfer', action: 'read'", "resource: 'transfer', action: 'create'", "resource: 'transfer', action: 'reverse'",
+      "resource: 'adjustment', action: 'read'", "resource: 'adjustment', action: 'create'", "resource: 'adjustment', action: 'reverse'",
+      "resource: 'transaction', action: 'export'",
+    ]) {
+      if (!permissionSource.includes(permission)) {
+        findings.push({ file: 'src/modules/inventory/permissions.ts', rule: 'inventory-v2-exact-permissions', detail: `Missing ${permission}.` })
+      }
+    }
+  }
+
   return findings
 }
 

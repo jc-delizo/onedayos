@@ -3,13 +3,26 @@
 Status: Frozen
 Date: 2026-07
 Decision Authority: OneDayOS Founder
-Implementation Allowed: One subpackage at a time; only V2-6B is eligible for explicit authorization next
+Implementation Allowed: One subpackage at a time; V2-6D is eligible for explicit Founder/operator authorization next
+
+## Founder Clarification — 2026-07-25
+
+Prompt 53 narrowly amends the frozen contract:
+
+- create transactions contain 1–100 lines, enforced before database access;
+- Receipt/Issue reversal copy positive quantities and retain their Warehouse/applicable party;
+- Transfer reversal swaps source/destination Warehouses and copies positive quantities;
+- Adjustment reversal derives inverse delta from the exact canonical movement and stores the
+  computed post-reversal counted-final quantity, never a blindly copied original quantity;
+- reversals copy reference number/date and applicable party plus line Product/unit/number/notes,
+  but use the new reason/current actor/time and do not copy transaction notes.
 
 V2-6 direction is approved.
 
 Implementation is authorized one subpackage at a time.
 
-Only V2-6B is eligible for explicit Founder authorization next.
+V2-6B and V2-6C are Founder Accepted. V2-6D is eligible for explicit Founder/operator
+authorization next but is not authorized by this report.
 
 ## Approved Model and Lifecycle
 
@@ -118,7 +131,8 @@ Coffee remains low against reorder point 10.
 2. V2-6C — Posting Engine, APIs, Permissions, Events, and Compatibility Reads.
 3. V2-6D — UI, Modals, Navigation, Exports, Demo Cutover, and Acceptance.
 
-V2-6C is blocked until V2-6B acceptance. V2-6D is blocked until V2-6C acceptance. Legacy cleanup is later.
+V2-6B and V2-6C are Founder Accepted. V2-6D is ready for explicit approval but remains
+unauthorized. Legacy cleanup is later.
 
 ## Forbidden Scope and Release Status
 

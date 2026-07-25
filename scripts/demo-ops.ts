@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { config as loadDotenv } from 'dotenv'
 import { PRODUCT_CATEGORY_PERMISSIONS, PRODUCT_PERMISSIONS } from '../src/business-objects/product/permissions'
 import { SUPPLIER_PERMISSIONS } from '../src/business-objects/supplier/permissions'
+import { CUSTOMER_PERMISSIONS } from '../src/business-objects/customer/permissions'
 import { WAREHOUSE_PERMISSIONS } from '../src/business-objects/warehouse/permissions'
 import { INVENTORY_PERMISSIONS } from '../src/modules/inventory/permissions'
 
@@ -62,6 +63,20 @@ export const WAREHOUSE_OPERATOR_PERMISSION_PROFILE = [
   PRODUCT_CATEGORY_PERMISSIONS.READ,
   SUPPLIER_PERMISSIONS.READ,
   WAREHOUSE_PERMISSIONS.READ,
+] as const
+
+// V2-6D cutover input only. The current controlled demo profile remains unchanged in V2-6C.
+export const WAREHOUSE_OPERATOR_V2_PERMISSION_PROFILE = [
+  ...WAREHOUSE_OPERATOR_PERMISSION_PROFILE,
+  INVENTORY_PERMISSIONS.RECEIPT_READ,
+  INVENTORY_PERMISSIONS.RECEIPT_CREATE,
+  INVENTORY_PERMISSIONS.ISSUE_READ,
+  INVENTORY_PERMISSIONS.ISSUE_CREATE,
+  INVENTORY_PERMISSIONS.TRANSFER_READ,
+  INVENTORY_PERMISSIONS.TRANSFER_CREATE,
+  INVENTORY_PERMISSIONS.ADJUSTMENT_READ,
+  INVENTORY_PERMISSIONS.ADJUSTMENT_CREATE,
+  CUSTOMER_PERMISSIONS.READ,
 ] as const
 
 export const WAREHOUSE_OPERATOR_PERMISSION_KEYS = WAREHOUSE_OPERATOR_PERMISSION_PROFILE.map(permissionKey).sort()

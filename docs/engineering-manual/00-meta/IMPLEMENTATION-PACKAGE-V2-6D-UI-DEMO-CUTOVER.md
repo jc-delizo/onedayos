@@ -1,11 +1,13 @@
 # Implementation Package — V2-6D UI, Demo, and Cutover
 
-Status: Blocked
-Implementation Allowed: No
+Status: Ready for Founder Approval
+Implementation Allowed: No — explicit Founder/operator authorization required
 
 ## Dependency
 
-Requires Founder acceptance of V2-6B and V2-6C, including sandbox schema/backfill and disabled posting-engine evidence, followed by explicit V2-6D authorization.
+V2-6B and V2-6C are Founder Accepted. Controlled-sandbox schema migration/backfill, permission
+provisioning, runtime enablement, and UI/demo cutover require explicit V2-6D Founder/operator
+authorization.
 
 ## Scope After Authorization
 

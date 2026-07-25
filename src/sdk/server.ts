@@ -19,6 +19,7 @@ import { createTenantDb } from '@/kernel/db/tenant-db'
 import { can } from '@/kernel/permissions/match'
 import { requireAllPermissions, requireAnyPermission, requirePermission } from '@/kernel/permissions/enforce'
 import { isModuleEnabled, requireModuleEnabled } from '@/kernel/modules/enablement'
+import { getInventoryV2RuntimeConfig } from '@/kernel/env/server'
 
 function getDb(ctx: PlatformContext): TenantDb {
   if (!isPlatformContext(ctx)) {
@@ -120,6 +121,12 @@ async function emit(ctx: PlatformContext, eventName: string, payload: unknown) {
 }
 
 export const sdk = {
+  runtime: {
+    isInventoryV2Enabled: () => getInventoryV2RuntimeConfig().enabled,
+    requireInventoryV2: () => {
+      if (!getInventoryV2RuntimeConfig().enabled) throw apiErrors.moduleNotFound()
+    },
+  },
   auth: {
     getSession,
     getAuthUser: getApiAuthUser,

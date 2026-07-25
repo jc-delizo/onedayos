@@ -30,6 +30,7 @@
     "demo:enrich-inventory": "tsx scripts/enrich-sandbox-inventory-demo.ts",
     "inventory:v2:backfill:preflight": "tsx scripts/inventory-v2/backfill-preflight.ts",
     "inventory:v2:migration:rehearse": "tsx scripts/inventory-v2/migration-rehearsal.ts",
+    "inventory:v2:posting:rehearse": "tsx scripts/inventory-v2/posting-rehearsal.ts",
     "module:create": "tsx scripts/create-module.ts",
     "check:all": "npm run check:env && npm run check:audit-policy && npm run check:prisma && npm run lint && npm run typecheck && npm run check:architecture && npm run check:generated && npm run check:ux && npm run test:run && npm run test:a11y && npm run build"
   },

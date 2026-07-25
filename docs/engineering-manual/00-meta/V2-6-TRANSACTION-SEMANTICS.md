@@ -4,6 +4,14 @@ Status: Frozen
 Date: 2026-07
 Implementation Allowed: No
 
+## Founder Clarification — 2026-07-25
+
+Prompt 53 freezes the reversal representation and V2-6 MVP line bound. Every create request has
+1–100 lines; 0 and 101 lines fail before database access. Reversal requests contain no lines.
+Reversals copy reference number/date, applicable Supplier/Customer, Product, unit, line number,
+and line notes, but use the new reversal reason, current actor/time, and no copied transaction
+notes.
+
 ## Lifecycle Decision
 
 Recommend Option A: posted-only with safe reversal.
@@ -109,13 +117,30 @@ Reversal executes atomically:
 4. require a non-empty reversal reason;
 5. recompute current balance safety;
 6. create a new `POSTED` transaction with `reversalOfTransactionId = original.id`;
-7. copy immutable reference context and lines, with inverse stock effects;
+7. create type-specific reversal headers/lines according to the frozen representation below;
 8. append reversing movements;
 9. update balances;
 10. set original to `REVERSED`; reversal date, actor, and reason derive from the posted reversal transaction;
 11. commit, then emit reversal facts.
 
 Receipt reversal removes the originally received quantities and can fail if later consumption leaves insufficient stock. Issue reversal adds quantities. Transfer reversal moves stock from the original destination back to the original source and can fail if destination stock is insufficient. Adjustment reversal applies the inverse signed delta and can fail when reversing a positive adjustment would create negative stock.
+
+Receipt and Issue reversal retain the original Warehouse, applicable party, positive line
+quantities, units, line numbers, and line notes. Receipt appends `reversal_out`; Issue appends
+`reversal_in`.
+
+Transfer reversal swaps the header Warehouses: its source is the original destination and its
+destination is the original source. It copies positive line quantities/units/numbers/notes and
+appends `reversal_out` at the original destination plus `reversal_in` at the original source.
+
+Adjustment reversal derives the exact original signed delta from each canonical linked movement.
+For each line, `reversalDelta = -originalMovement.quantityDelta` and the reversal line counted-final
+quantity is `currentBalance + reversalDelta`; it is not copied from the original Adjustment line.
+The computed result must be non-negative. The inverse movement is `reversal_in` for a positive
+reversal delta and `reversal_out` for a negative reversal delta.
+
+Missing, duplicate, cross-tenant, cross-transaction, or otherwise inconsistent canonical movement
+linkage rejects reversal without history repair.
 
 The reversal transaction uses the same transaction type, a `REV` number, and an explicit reversal link. It is not independently reversible in V2-6. Double reversal returns `409`. If a reversal was incorrect, post a new normal corrective transaction. Posted movements are never edited or deleted.
 
@@ -220,6 +245,9 @@ POST /api/orgs/[orgSlug]/inventory/transactions/[id]/reverse
 ```
 
 Type-specific POST schemas prevent invalid nullable-field combinations before the service. Lists remain type-specific for permissions and sidebar pages. Detail and reverse are unified because identity and lifecycle are unified.
+
+Every type-specific create schema requires 1–100 submitted lines. A Transfer with 100 lines may
+create 200 movements in the same atomic transaction. The bound is not configurable.
 
 All routes use standard JSON envelopes, strict Zod, safe `401/403/404/409/422`, module-disabled `404`, no redirects/raw errors, and no client `orgId`. Create/reverse require `Idempotency-Key`. Relation IDs are revalidated in-tenant even when they came from an authorized picker.
 

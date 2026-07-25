@@ -1,13 +1,20 @@
 # Implementation Package — V2-6C Posting, API, and Compatibility
 
-Status: Ready for Founder Approval
-Implementation Allowed: No — explicit Founder authorization required
+Status: Founder Accepted on 2026-07-25
+Implementation Allowed: Complete — no further V2-6C implementation authorized by this status
 
-## Dependency
+## Founder Clarification — 2026-07-25
 
-V2-6B is Founder Accepted. Founder must still explicitly authorize V2-6C before implementation.
-Controlled-sandbox migration/backfill remains a separate V2-6D operator gate and is not a
-prerequisite for disabled V2-6C implementation against the accepted schema contract.
+Prompt 53 authorizes this package and freezes 1–100 create lines. Transfer reversal swaps source
+and destination. Adjustment reversal derives inverse movement delta from canonical history and
+stores the computed post-reversal counted-final quantity. Receipt/Issue retain their Warehouse and
+applicable party. Reversals copy reference context and line metadata, but use a new reason/current
+actor/time and do not copy transaction notes.
+
+## Acceptance
+
+V2-6B and V2-6C are Founder Accepted. The controlled-sandbox migration/backfill remains a
+separate V2-6D operator gate and was not executed by V2-6C.
 
 ## Scope After Authorization
 
@@ -69,4 +76,5 @@ Keep the feature disabled. Revert application readers/writers to accepted V2-6B 
 
 ## Next Package
 
-V2-6D remains blocked until V2-6C acceptance.
+V2-6D is ready for explicit Founder/operator approval. This acceptance does not authorize its
+implementation or controlled-sandbox migration, backfill, provisioning, enablement, or cutover.

@@ -21,16 +21,19 @@ describe('server env validation', () => {
     const previousDemoMode = process.env.ONEDAYOS_DEMO_MODE
     const previousRegistration = process.env.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED
     const previousReset = process.env.ONEDAYOS_DEMO_RESET_APPROVED
+    const previousInventoryV2 = process.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED
 
     delete process.env.ONEDAYOS_DEMO_MODE
     delete process.env.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED
     delete process.env.ONEDAYOS_DEMO_RESET_APPROVED
+    delete process.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED
 
     const defaultEnv = getServerEnv()
 
     expect(defaultEnv.ONEDAYOS_DEMO_MODE).toBe(false)
     expect(defaultEnv.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED).toBe(true)
     expect(defaultEnv.ONEDAYOS_DEMO_RESET_APPROVED).toBe(false)
+    expect(defaultEnv.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED).toBe(false)
 
     if (previousDemoMode === undefined) delete process.env.ONEDAYOS_DEMO_MODE
     else process.env.ONEDAYOS_DEMO_MODE = previousDemoMode
@@ -38,15 +41,19 @@ describe('server env validation', () => {
     else process.env.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED = previousRegistration
     if (previousReset === undefined) delete process.env.ONEDAYOS_DEMO_RESET_APPROVED
     else process.env.ONEDAYOS_DEMO_RESET_APPROVED = previousReset
+    if (previousInventoryV2 === undefined) delete process.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED
+    else process.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED = previousInventoryV2
 
     vi.stubEnv('ONEDAYOS_DEMO_MODE', 'true')
     vi.stubEnv('ONEDAYOS_PUBLIC_REGISTRATION_ENABLED', 'false')
     vi.stubEnv('ONEDAYOS_DEMO_RESET_APPROVED', 'true')
+    vi.stubEnv('ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED', 'true')
 
     const demoEnv = getServerEnv()
 
     expect(demoEnv.ONEDAYOS_DEMO_MODE).toBe(true)
     expect(demoEnv.ONEDAYOS_PUBLIC_REGISTRATION_ENABLED).toBe(false)
     expect(demoEnv.ONEDAYOS_DEMO_RESET_APPROVED).toBe(true)
+    expect(demoEnv.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED).toBe(true)
   })
 })

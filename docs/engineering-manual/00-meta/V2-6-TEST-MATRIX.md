@@ -6,6 +6,17 @@ Implementation Allowed: No
 
 Every tenant-sensitive suite uses at least two organizations and separates authentication, module, permission, and tenant-denial assertions.
 
+## Founder Clarification Coverage — 2026-07-25
+
+- All create schemas reject 0/101 lines and accept 1/100 without database access on invalid bounds.
+- Maximum-size posts remain atomic; a 100-line Transfer creates 200 paired movements.
+- Receipt/Issue reversal copy positive line quantities and retain the applicable Warehouse/party.
+- Transfer reversal swaps Warehouses and emits inverse movements at the physical reverse sides.
+- Adjustment reversal derives inverse delta from canonical movement and stores current balance
+  minus the original delta as counted-final quantity, including after intervening balance changes.
+- Reversal context copies reference date/number and line notes, uses new reason/current actor/time,
+  and rejects missing/duplicate/inconsistent canonical movements.
+
 ## Schema and Migration
 
 | Area | Required evidence |

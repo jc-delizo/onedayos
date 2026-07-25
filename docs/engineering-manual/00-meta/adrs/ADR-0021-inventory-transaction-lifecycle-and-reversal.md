@@ -4,6 +4,15 @@ Status: Accepted
 Date: 2026-07
 Implementation Allowed: Only one explicitly authorized V2-6 subpackage at a time
 
+## Founder Clarification — 2026-07-25
+
+Prompt 53 amends this accepted decision without reopening it. Create transactions contain 1–100
+lines. Receipt/Issue reversal retain Warehouse/applicable party and copy positive line quantities.
+Transfer reversal swaps source/destination and copies positive quantities. Adjustment reversal
+uses the inverse of each exact canonical movement and stores the resulting counted-final quantity,
+not the original line quantity. Reversals copy reference number/date and line metadata, use the new
+reason/current actor/time, and omit original transaction notes.
+
 ## Context
 
 ADR-0020 froze a unified `InventoryTransaction`/`InventoryTransactionLine` direction but did not fully decide lifecycle, Warehouse field shape, reversal records, movement linkage, numbering, idempotency, concurrency, or legacy compatibility. The Founder approved and amended the V2-6A review through Prompt 47.

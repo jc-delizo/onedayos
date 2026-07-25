@@ -41,9 +41,10 @@ This readiness note does not authorize V2-6 implementation. Separate explicit Fo
 - The schema, transaction semantics, migration/backfill, and test documents are Frozen.
 - The former combined V2-6 handoff is superseded.
 - V2-6B Founder Accepted on 2026-07-25.
-- V2-6C is the next package eligible for explicit Founder authorization; implementation remains
-  disallowed until that authorization is given.
-- V2-6D remains blocked.
+- Prompt 53 authorized V2-6C after freezing the clarified reversal and 1–100-line contracts.
+- V2-6C Founder Accepted on 2026-07-25.
+- V2-6D is the next package eligible for explicit Founder/operator authorization; implementation
+  is not yet authorized.
 - V2-7 and V2-8 remain blocked.
 
 Prompt 48 authorized the repository-only V2-6B implementation and Prompt 51 records its Founder
@@ -51,3 +52,7 @@ acceptance. No controlled migration or backfill was applied. Explicit operator a
 remains required before sandbox migration/backfill, which stays gated for V2-6D unless the frozen
 roadmap is amended. Public self-service demo approval and production readiness remain unclaimed.
 Website asset production remains paused.
+
+V2-6C did not apply that migration or backfill and did not enable the controlled runtime.
+Controlled-sandbox migration/backfill/provisioning/runtime enablement and V2-6D cutover remain
+blocked pending explicit authorization. V2-7 and V2-8 remain blocked.

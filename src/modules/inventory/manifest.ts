@@ -38,6 +38,16 @@ export const inventoryManifest = defineModuleManifest({
       label: 'Stock Adjustment',
       description: 'Posted manual stock correction record.',
     },
+    {
+      key: 'inventory_transaction',
+      label: 'Inventory Transaction',
+      description: 'Canonical receipt, issue, transfer, adjustment, or reversal header.',
+    },
+    {
+      key: 'inventory_transaction_line',
+      label: 'Inventory Transaction Line',
+      description: 'Canonical product and quantity line belonging to an inventory transaction.',
+    },
   ],
   permissions: Object.values(INVENTORY_PERMISSIONS),
   navItems: inventoryNavigation,
@@ -124,6 +134,34 @@ export const inventoryManifest = defineModuleManifest({
       method: 'GET',
       path: '/api/orgs/[orgSlug]/inventory/stock-adjustments/[id]',
       requiredPermission: INVENTORY_PERMISSIONS.STOCK_ADJUSTMENT_READ,
+    },
+    ...(['receipts', 'issues', 'transfers', 'adjustments'] as const).flatMap((resource, index) => {
+      const reads = [
+        INVENTORY_PERMISSIONS.RECEIPT_READ,
+        INVENTORY_PERMISSIONS.ISSUE_READ,
+        INVENTORY_PERMISSIONS.TRANSFER_READ,
+        INVENTORY_PERMISSIONS.ADJUSTMENT_READ,
+      ] as const
+      const creates = [
+        INVENTORY_PERMISSIONS.RECEIPT_CREATE,
+        INVENTORY_PERMISSIONS.ISSUE_CREATE,
+        INVENTORY_PERMISSIONS.TRANSFER_CREATE,
+        INVENTORY_PERMISSIONS.ADJUSTMENT_CREATE,
+      ] as const
+      return [
+        { method: 'GET' as const, path: `/api/orgs/[orgSlug]/inventory/transactions/${resource}`, requiredPermission: reads[index] },
+        { method: 'POST' as const, path: `/api/orgs/[orgSlug]/inventory/transactions/${resource}`, requiredPermission: creates[index] },
+      ]
+    }),
+    {
+      method: 'GET',
+      path: '/api/orgs/[orgSlug]/inventory/transactions/[id]',
+      requiredPermission: INVENTORY_PERMISSIONS.RECEIPT_READ,
+    },
+    {
+      method: 'POST',
+      path: '/api/orgs/[orgSlug]/inventory/transactions/[id]/reverse',
+      requiredPermission: INVENTORY_PERMISSIONS.RECEIPT_REVERSE,
     },
   ],
   events: inventoryEventManifest,

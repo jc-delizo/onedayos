@@ -29,6 +29,8 @@ describe('inventory manifest', () => {
       'stock_balance',
       'stock_movement',
       'stock_adjustment',
+      'inventory_transaction',
+      'inventory_transaction_line',
     ])
   })
 
