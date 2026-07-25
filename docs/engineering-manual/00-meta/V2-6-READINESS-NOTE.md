@@ -24,7 +24,7 @@ V2-6 Inventory V2 Core Transactions is the next package in the frozen roadmap. I
 
 - `InventoryTransaction` and `InventoryTransactionLine`;
 - migration, backfill, and rollback behavior;
-- immutable posting and safe void/reversal;
+- immutable posting and safe reversal;
 - receipt, issue, transfer, and adjustment validation;
 - atomic Stock Balance and Movement Ledger updates;
 - cross-tenant reference rejection and negative-stock prevention.
@@ -32,3 +32,15 @@ V2-6 Inventory V2 Core Transactions is the next package in the frozen roadmap. I
 ## Authorization
 
 This readiness note does not authorize V2-6 implementation. Separate explicit Founder authorization remains required before any Prisma schema, migration, application, API, service, UI, or demo-data change begins.
+
+## V2-6 Governance Status
+
+- V2-6A review is complete.
+- ADR-0021 is Accepted.
+- The schema, transaction semantics, migration/backfill, and test documents are Frozen.
+- The former combined V2-6 handoff is superseded.
+- V2-6B Schema, Migration, and Backfill Foundation is Ready for Founder Approval but is not authorized.
+- V2-6C and V2-6D remain blocked behind prior-package acceptance.
+- V2-7 and V2-8 remain blocked.
+
+Separate explicit Founder authorization is required before V2-6B edits Prisma or creates migration/tooling changes. Sandbox migration/backfill requires additional explicit operator approval. Public self-service demo approval and production readiness remain unclaimed. Website asset production remains paused.

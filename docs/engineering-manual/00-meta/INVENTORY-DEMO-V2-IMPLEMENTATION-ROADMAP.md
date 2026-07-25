@@ -2,11 +2,11 @@
 
 Status: Frozen
 Date: 2026-07
-Implementation Allowed: One package at a time; only V2-1 is authorized next
+Implementation Allowed: One package at a time; only V2-6B is eligible for explicit Founder authorization next
 
 Frozen sequence: `V2-1 → V2-2 → V2-3 → V2-4 → V2-5 → V2-6 → V2-7 → V2-8`.
 
-Do not reorder without an ADR or roadmap amendment. Approval of this roadmap does not authorize V2-2 or later.
+Do not reorder without an ADR or roadmap amendment. Governance approval does not itself authorize implementation.
 
 ## Package V2-1: Compact Header and Shared Records IA
 
@@ -216,6 +216,18 @@ Forbidden:
 
 ## Package V2-6: Inventory V2 Core Transactions
 
+V2-6A is complete. ADR-0021 is Accepted and the review documents are Frozen.
+
+The frozen lifecycle is posted-only `POSTED → REVERSED`, with separate posted reversal transactions, composite transaction/line movement linkage, counted-final Adjustment lines, expand-contract legacy compatibility, fixed server-generated non-sequential numbers, required idempotency, serializable posting, type-specific APIs, exact least-privilege permissions, best-effort MVP events, and an implementation-grade test matrix.
+
+Implementation order is:
+
+1. V2-6B — Schema, Migration, and Backfill Foundation: Ready for Founder Approval; not authorized.
+2. V2-6C — Posting Engine, APIs, Permissions, Events, and Compatibility Reads: Blocked.
+3. V2-6D — UI, Modals, Navigation, Exports, Demo Cutover, and Acceptance: Blocked.
+
+No subpackage may begin without explicit authorization. Sandbox migration/backfill also requires separate operator approval.
+
 Goals:
 
 - Add Receive Stock, Issue Stock, Transfer Stock, and Adjustment transaction flows.
@@ -233,7 +245,7 @@ Schema impact: yes.
 Approved model and migration direction:
 
 - Add `InventoryTransaction` and `InventoryTransactionLine`.
-- Use `type = receipt | issue | transfer | adjustment`.
+- Use `type = RECEIPT | ISSUE | TRANSFER | ADJUSTMENT` and `status = POSTED | REVERSED`.
 - Keep existing StockAdjustment initially or backfill through an approved V2-6 migration plan.
 - Allow optional shared Customer reference on issues; do not introduce a Party model.
 
@@ -247,7 +259,7 @@ Tests:
 - Paired transfer movements.
 - No partial writes.
 - No event on failed mutation.
-- Immutable posted transaction behavior and safe void/reversal.
+- Immutable posted transaction behavior and safe reversal.
 
 Rollback:
 
@@ -340,6 +352,8 @@ Forbidden:
 - Stable TanStack Table v8, Recharts v3, and selective Radix Dialog use are accepted only in their assigned packages.
 - `exceljs@4.4.0` remains conditional until the V2-5 implementation-time audit.
 - Unified Inventory transactions and optional Customer-on-issue are frozen for V2-6.
+- V2-6B is the only next package eligible for explicit authorization; V2-6C and V2-6D remain blocked.
 - Tenant-safe caching is deferred to V2-7 after stabilization and a current Next.js 16 audit.
 - Curated accents default to Neutral in V2-8; the OneDayOS mark remains orange and semantic colors remain fixed.
 - Website asset production remains paused until V2-1 through V2-6 are complete and audited, capture timing is approved, the controlled demo gates pass, and no Blocker/Must-Fix findings remain.
+- Public self-service demo approval and production readiness remain unclaimed.
