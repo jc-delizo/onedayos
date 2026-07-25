@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RouteModal, useRouteModalLifecycle } from '../route-modal'
@@ -51,5 +51,15 @@ describe('RouteModal', () => {
     await user.click(screen.getByRole('button', { name: 'Close dialog' }))
     await user.click(screen.getByRole('button', { name: 'Discard changes' }))
     expect(router.back).toHaveBeenCalledOnce()
+  })
+
+  it('cancels the close fallback when the route unmounts', () => {
+    vi.useFakeTimers()
+    const { unmount } = render(<RouteModal title="Edit Product" closeHref="/acme/records/products"><button type="button">Save</button></RouteModal>)
+    fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }))
+    unmount()
+    vi.runAllTimers()
+    expect(router.replace).not.toHaveBeenCalled()
+    vi.useRealTimers()
   })
 })

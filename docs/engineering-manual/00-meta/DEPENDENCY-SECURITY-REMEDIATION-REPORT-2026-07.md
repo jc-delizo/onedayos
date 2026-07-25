@@ -2,7 +2,12 @@
 
 ## Status
 
-Complete and verified on 2026-07-23. The approved dependency-only package removed all findings from both the full and production npm audits without changing application behavior, the Prisma schema, migrations, or V2 scope.
+Reopened on 2026-07-25: the production audit is clean, but the full high/moderate audit is blocked
+by the stable lint-stack compatibility boundary documented in the V2-6B addendum below.
+
+The original approved dependency-only package was complete and verified on 2026-07-23. It removed
+all findings reported at that time without changing application behavior, the Prisma schema,
+migrations, or V2 scope.
 
 Founder visual acceptance remains pending and is independent of this technical remediation.
 
@@ -168,3 +173,74 @@ Fresh registry data added two high-severity findings after the previous clean re
 `npm ci`, `npm ls --all`, Prisma validate/generate, typecheck, lint, 50 test files / 313 tests, 3 accessibility files / 14 tests, UX/architecture/generated/environment checks, two production builds, `check:all`, and all three audit thresholds passed under Node `24.18.0` and npm `11.16.0`. Full and production audit JSON each report zero findings.
 
 The controlled-demo readiness check did not pass because Supabase Auth rejected the configured service-role credential with HTTP 403 `bad_jwt` (unrecognized ES256 key ID). Prompt 39 forbids modifying `.env.local`; no credential, demo data, schema, migration, API, or UI change was made. Prompt 38 remains paused until the sandbox credential is repaired and `npm run demo:check` passes.
+
+## V2-6B Acceptance-Gate Remediation — 2026-07-25
+
+Status: Production clean; one approved time-bounded dev-only lint-tooling exception.
+
+The production audit is clean after these minimal changes:
+
+- `@tailwindcss/postcss` and `tailwindcss` moved together from `4.3.2` to `4.3.3`;
+- exact `@tailwindcss/postcss@4.3.3`, `vite@8.1.3`, and existing `next@16.2.11`
+  parent scopes resolve `postcss@8.5.18`;
+- exact `@prisma/dev@0.24.14` resolves `valibot@1.4.2` while preserving the prior
+  `find-my-way@9.7.0` decision;
+- `exceljs@4.4.0` remains pinned, while its existing parent scope now resolves
+  `archiver@8.0.0`, `unzipper@0.12.5`, and the prior `uuid@11.1.1`.
+
+The ExcelJS parent cannot naturally select safe descendants because `4.4.0` is the latest release
+and declares Archiver 5 plus Unzipper 0.10. Archiver 8 and Unzipper 0.12 retain the APIs exercised
+by OneDayOS's repeated XLSX write/read compatibility suite. ExcelJS is listed in Next's
+`serverExternalPackages` because Unzipper exposes optional archive transports through dynamic
+requires; externalizing the already server-only adapter prevents Turbopack from resolving unused
+optional transports such as the AWS S3 client. Removal conditions are a future
+ExcelJS release that natively selects patched descendants, followed by the same export, build,
+audit, and runtime gates.
+
+After those changes:
+
+| Audit | Result |
+| --- | --- |
+| Production moderate | Pass; 0 findings |
+| Full high | Fail; 9 high package entries |
+| Full moderate | Fail; the same 9 high entries |
+
+The remaining entries all fan out from GHSA-mh99-v99m-4gvg through `minimatch@3.1.5` used by
+ESLint 9 and the lint plugins shipped by `eslint-config-next@16.2.11`.
+
+Founder decision Prompt 50 accepts only this exact development-tooling graph through 2026-08-31.
+The required policy checker rejects any other finding, changed metadata/root/version, production
+or direct occurrence, critical severity, or expiry. Raw full audit remains nonzero and is not
+reported as clean. Production dependency audit: clean. Development audit: one approved,
+time-bounded lint-tooling exception.
+
+Two apparent registry paths were rejected after direct compatibility checks:
+
+1. ESLint `10.8.0` clears ESLint's own old Minimatch dependency, but current
+   `eslint-plugin-import@2.32.0`, `eslint-plugin-jsx-a11y@6.10.2`, and
+   `eslint-plugin-react@7.37.5` reject ESLint 10 in their peer ranges. `npm ls --all` reports an
+   invalid peer tree, which violates the acceptance gate.
+2. Forcing `brace-expansion@5.0.8` beneath Minimatch 3 is API-incompatible. Brace Expansion 1
+   exports a callable CommonJS function; Brace Expansion 5 exports an object containing `expand`.
+   Minimatch 3 calls the required module directly as a function.
+
+No broad override, vulnerable downgrade, audit suppression, `npm audit fix`, or forced install was
+used. The safe stopping condition is to wait for a stable coherent Next lint stack whose plugins
+accept ESLint 10 or natively use a patched compatible Minimatch/Brace Expansion chain. An
+independently reviewed compatibility fork would require a separate authorization.
+
+Because Prompt 49 requires all three audit thresholds to pass before database work, no disposable
+migration rehearsal was started.
+
+Compatibility verification for the accepted partial remediation passes:
+
+- clean `npm ci` and `npm ls --all` with no invalid or unmet peer state;
+- 14 focused ExcelJS/export tests, including repeated XLSX write/read;
+- 64 test files / 418 tests;
+- 5 accessibility files / 18 tests;
+- Prisma validation/generation, typecheck, lint, architecture, generated, UX, and environment
+  checks;
+- standalone production build and `npm run check:all`;
+- read-only controlled `demo:check`.
+
+No migration, backfill, demo reset, commit, tag, or `.env.local` change occurred.

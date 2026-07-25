@@ -18,7 +18,8 @@
     "test:api": "vitest run src/app src/kernel/api src/kernel/auth",
     "test:security": "vitest run src/kernel src/sdk scripts",
     "check:env": "tsx scripts/check-env.ts",
-    "check:prisma": "prisma validate && prisma generate",
+    "check:audit-policy": "tsx scripts/check-dependency-audit-policy.ts",
+    "check:prisma": "prisma validate && prisma generate && tsx scripts/check-prisma-foundation.ts",
     "check:architecture": "tsx scripts/check-architecture.ts",
     "check:generated": "tsx scripts/check-generated.ts",
     "check:ux": "tsx scripts/check-ux.ts",
@@ -27,8 +28,10 @@
     "demo:check": "tsx scripts/check-demo-readiness.ts",
     "demo:reset": "tsx scripts/reset-sandbox-demo.ts",
     "demo:enrich-inventory": "tsx scripts/enrich-sandbox-inventory-demo.ts",
+    "inventory:v2:backfill:preflight": "tsx scripts/inventory-v2/backfill-preflight.ts",
+    "inventory:v2:migration:rehearse": "tsx scripts/inventory-v2/migration-rehearsal.ts",
     "module:create": "tsx scripts/create-module.ts",
-    "check:all": "npm run check:env && npm run check:prisma && npm run lint && npm run typecheck && npm run check:architecture && npm run check:generated && npm run check:ux && npm run test:run && npm run test:a11y && npm run build"
+    "check:all": "npm run check:env && npm run check:audit-policy && npm run check:prisma && npm run lint && npm run typecheck && npm run check:architecture && npm run check:generated && npm run check:ux && npm run test:run && npm run test:a11y && npm run build"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.9.0",
@@ -50,7 +53,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "4.3.2",
+    "@tailwindcss/postcss": "4.3.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -65,7 +68,7 @@
     "jiti": "2.6.1",
     "jsdom": "^29.1.1",
     "prisma": "7.9.0",
-    "tailwindcss": "4.3.2",
+    "tailwindcss": "4.3.3",
     "tsx": "4.23.0",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
@@ -76,10 +79,19 @@
       "sharp": "0.35.3"
     },
     "@prisma/dev@0.24.14": {
-      "find-my-way": "9.7.0"
+      "find-my-way": "9.7.0",
+      "valibot": "1.4.2"
     },
     "exceljs": {
+      "archiver": "8.0.0",
+      "unzipper": "0.12.5",
       "uuid": "11.1.1"
+    },
+    "@tailwindcss/postcss@4.3.3": {
+      "postcss": "8.5.18"
+    },
+    "vite@8.1.3": {
+      "postcss": "8.5.18"
     }
   }
 }

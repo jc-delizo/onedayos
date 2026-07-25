@@ -79,6 +79,20 @@ production deploys missing migration checks
 
 CI is the difference between a disciplined platform and a fragile custom-app codebase.
 
+## July 2026 Dev-Tooling Audit Exception
+
+Production dependency audit: clean.
+
+Development audit: one approved, time-bounded lint-tooling exception.
+
+CI strictly requires `npm audit --omit=dev --audit-level=moderate` and
+`npm run check:audit-policy`. The latter permits only GHSA-mh99-v99m-4gvg through the frozen
+dev-only ESLint/Next lint graph until 2026-08-31 and rejects every mismatch or expiry. Raw full
+audit output remains visible and is not called clean. Lint remains required, receives no secrets,
+uses repository-controlled static input, has a ten-minute step bound, and runs inside a
+45-minute job. See
+`00-meta/DEV-TOOLING-SECURITY-EXCEPTION-GHSA-MH99-V99M-4GVG.md`.
+
 ---
 
 # 3. Scope

@@ -13,7 +13,8 @@ The annotated tag resolves the exact checkpoint commit.
 
 ## Verified Boundary
 
-- Full and production dependency audits are clean.
+- Production dependency audit: clean. Development audit: one approved, time-bounded lint-tooling
+  exception for GHSA-mh99-v99m-4gvg, expiring 2026-08-31.
 - Exact `exceljs@4.4.0` and the scoped ExcelJS to `uuid@11.1.1` compatibility decision are recorded.
 - The Prisma schema and migrations are unchanged through V2-5.
 - No V2-6 transaction model, API, service, UI, demo-data, cache, accent, asset, module, or Platform Service work is included in the checkpoint package.
@@ -39,8 +40,14 @@ This readiness note does not authorize V2-6 implementation. Separate explicit Fo
 - ADR-0021 is Accepted.
 - The schema, transaction semantics, migration/backfill, and test documents are Frozen.
 - The former combined V2-6 handoff is superseded.
-- V2-6B Schema, Migration, and Backfill Foundation is Ready for Founder Approval but is not authorized.
-- V2-6C and V2-6D remain blocked behind prior-package acceptance.
+- V2-6B Founder Accepted on 2026-07-25.
+- V2-6C is the next package eligible for explicit Founder authorization; implementation remains
+  disallowed until that authorization is given.
+- V2-6D remains blocked.
 - V2-7 and V2-8 remain blocked.
 
-Separate explicit Founder authorization is required before V2-6B edits Prisma or creates migration/tooling changes. Sandbox migration/backfill requires additional explicit operator approval. Public self-service demo approval and production readiness remain unclaimed. Website asset production remains paused.
+Prompt 48 authorized the repository-only V2-6B implementation and Prompt 51 records its Founder
+acceptance. No controlled migration or backfill was applied. Explicit operator authorization
+remains required before sandbox migration/backfill, which stays gated for V2-6D unless the frozen
+roadmap is amended. Public self-service demo approval and production readiness remain unclaimed.
+Website asset production remains paused.

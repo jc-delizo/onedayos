@@ -1,8 +1,20 @@
 # Dependency Audit Triage — 2026-07
 
-Status: Closed — remediation verified; Founder acceptance remains the V2-2 gate
+Status: Production clean; one approved time-bounded dev-only lint-tooling exception
 Date reviewed: 2026-07-23
 Scope: Prompt 34 read-only triage plus Prompt 35 dependency remediation result
+
+## V2-6B Founder Exception Addendum — 2026-07-25
+
+Production dependency audit: clean.
+
+Development audit: one approved, time-bounded lint-tooling exception.
+
+The only permitted advisory is GHSA-mh99-v99m-4gvg (`brace-expansion`, high) through the exact
+dev-only stable ESLint/Next lint graph. A strict required checker freezes its metadata, wrapper
+entries, roots, versions, transitive/dev classification, and 2026-08-31 expiry. All other moderate,
+high, or critical findings remain blockers. See
+`DEV-TOOLING-SECURITY-EXCEPTION-GHSA-MH99-V99M-4GVG.md`.
 
 ## Executive Decision
 
@@ -276,6 +288,70 @@ Verified 2026-07-23 under Node `24.18.0` and npm `11.16.0`.
 | GHSA-f88m-g3jw-g9cj (sharp/libvips) | `next -> sharp@0.35.3` | Narrow `next@16.2.11` override because its `^0.34.5` optional range cannot select `0.35.x` | Native load reports sharp `0.35.3` / libvips `8.18.3`; build, runtime, and audits pass | No known advisory; untrusted image workflows remain out of scope | Closed |
 
 The wrapper entries `prisma` and `@prisma/dev` closed with the same coherent Prisma `7.9.0` update and removal of the Hono dependency path. After remediation, `npm audit --json` and `npm audit --omit=dev --json` both report zero advisories. The production moderate, full high, and full moderate threshold commands all exit successfully.
+
+## V2-6B Acceptance-Gate Advisory Refresh — 2026-07-25
+
+Fresh registry data disclosed three underlying advisories after the previous clean checks. Before
+remediation, `npm audit --json` reported 20 package entries (17 high, 3 moderate), while
+`npm audit --omit=dev --json` reported 12 entries (9 high, 3 moderate). The wrapper entries fan out
+from the three advisories below; they are not 20 distinct vulnerabilities.
+
+### GHSA-mh99-v99m-4gvg — brace-expansion unbounded expansion denial of service
+
+- Severity: High.
+- Affected/patched range: `brace-expansion <=5.0.7`; patched in `5.0.8`.
+- Installed copies: `1.1.16`, `2.1.2`, and `5.0.7`.
+- Production-capable paths begin at `exceljs@4.4.0`: Archiver reaches Brace Expansion through
+  Readdir Glob/Minimatch and Glob/Minimatch; Unzipper reaches it through Fstream/Rimraf/Glob.
+- Development paths begin at `eslint@9.39.4`, the lint plugins published through
+  `eslint-config-next@16.2.11`, and TypeScript ESLint's `minimatch@10.2.5`.
+- Exploit prerequisite: attacker-controlled, extremely large brace patterns must reach a
+  Minimatch/Glob consumer and expand until process memory is exhausted.
+- Current exposure: no route accepts glob or brace patterns. Excel export paths are
+  server-controlled and lint tooling is not network-exposed. The runtime-capable ExcelJS chain is
+  nevertheless a high finding and cannot be dismissed.
+- Parent status: ExcelJS `4.4.0` is current and still declares Archiver 5 and Unzipper 0.10.
+  Current lint plugins still declare old Minimatch lines. Narrow compatible-parent overrides
+  require full export, lint, build, and runtime proof because no patched Brace Expansion release
+  exists within the old major ranges.
+- npm proposes ExcelJS `4.1.1`, ESLint `10.8.0`, and `eslint-config-next` `0.2.4`, marking direct
+  proposals breaking. The ExcelJS downgrade and unrelated Next configuration downgrade are not
+  coherent remediations.
+
+### GHSA-r28c-9q8g-f849 — PostCSS previous-source-map path traversal
+
+- Severity: High.
+- Affected/patched range: `postcss <=8.5.17`; patched in `8.5.18`.
+- Affected installed copy: deduplicated `postcss@8.5.16` through
+  `@tailwindcss/postcss@4.3.2` and `vitest@4.1.10 -> vite@8.1.3`.
+- Patched copy already present: `next@16.2.11 -> postcss@8.5.18` through the existing scoped
+  override.
+- Exploit prerequisite: processing attacker-controlled CSS containing a crafted
+  `sourceMappingURL` that triggers previous-source-map auto-loading and local `.map` disclosure.
+- Current exposure: build inputs are repository-controlled; OneDayOS has no arbitrary CSS upload,
+  theme builder, or runtime PostCSS service. Build tooling remains affected and must be patched.
+- Compatible remediation: the affected parents allow `postcss ^8.5.16`, so a lock refresh to
+  `8.5.18` is non-breaking.
+
+### GHSA-5qjj-4xww-7phc — Valibot inherited-property issue-path failure
+
+- Severity: Moderate.
+- Affected/patched range: `valibot <=1.4.1`; patched in `1.4.2`.
+- Installed path: `prisma@7.9.0 -> @prisma/dev@0.24.14 -> valibot@1.2.0`.
+- Classification: Prisma development/tooling path. npm retains it in the production audit because
+  of Prisma's optional peer relationship through `@prisma/client`; runtime code does not import
+  `@prisma/dev`.
+- Exploit prerequisite: a crafted record validation issue path using an inherited Object property
+  name must be passed to `flatten()`, causing an exception.
+- Current exposure: Prisma CLI is not a public service and does not process application-request
+  validation records. The moderate gate still requires remediation.
+- Compatible remediation: narrowly override Valibot to `1.4.2` under exact
+  `@prisma/dev@0.24.14`, then repeat Prisma generation, validation, migration, and full gates.
+- npm proposes downgrading Prisma to `6.19.3`, labeled breaking. That would violate the coherent
+  Prisma 7 family and is rejected.
+
+Sanitized before-state evidence is retained under `/tmp/onedayos-v2-6b-*before*`. No dependency
+version or override had been changed when this section was recorded.
 
 ## V2-3 Dependency Gate Addendum — 2026-07-24
 

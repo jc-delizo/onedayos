@@ -1,11 +1,13 @@
 # Implementation Package — V2-6C Posting, API, and Compatibility
 
-Status: Blocked
-Implementation Allowed: No
+Status: Ready for Founder Approval
+Implementation Allowed: No — explicit Founder authorization required
 
 ## Dependency
 
-Requires accepted V2-6B schema, migration, backfill, integrity, and sandbox evidence. Founder must explicitly authorize V2-6C after that acceptance.
+V2-6B is Founder Accepted. Founder must still explicitly authorize V2-6C before implementation.
+Controlled-sandbox migration/backfill remains a separate V2-6D operator gate and is not a
+prerequisite for disabled V2-6C implementation against the accepted schema contract.
 
 ## Scope After Authorization
 

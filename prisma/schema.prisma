@@ -19,6 +19,18 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+enum InventoryTransactionType {
+  RECEIPT
+  ISSUE
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum InventoryTransactionStatus {
+  POSTED
+  REVERSED
+}
+
 model Organization {
   id        String             @id @default(cuid())
   name      String
@@ -30,25 +42,27 @@ model Organization {
   deletedAt DateTime?
   deletedBy String?
 
-  subscription      Subscription?
-  modules           OrgModule[]
-  branches          Branch[]
-  departments       Department[]
-  users             User[]
-  roles             Role[]
-  userRoles         UserRole[]
-  permissions       Permission[]
-  settings          Setting[]
-  employees         Employee[]
-  productCategories ProductCategory[]
-  products          Product[]
-  customers         Customer[]
-  suppliers         Supplier[]
-  warehouses        Warehouse[]
+  subscription               Subscription?
+  modules                    OrgModule[]
+  branches                   Branch[]
+  departments                Department[]
+  users                      User[]
+  roles                      Role[]
+  userRoles                  UserRole[]
+  permissions                Permission[]
+  settings                   Setting[]
+  employees                  Employee[]
+  productCategories          ProductCategory[]
+  products                   Product[]
+  customers                  Customer[]
+  suppliers                  Supplier[]
+  warehouses                 Warehouse[]
   inventoryProductExtensions InventoryProductExtension[]
   stockBalances              StockBalance[]
   stockMovements             StockMovement[]
   stockAdjustments           StockAdjustment[]
+  inventoryTransactions      InventoryTransaction[]
+  inventoryTransactionLines  InventoryTransactionLine[]
 
   @@index([status, isActive])
   @@map("organizations")
@@ -142,13 +156,15 @@ model User {
   deletedAt DateTime?
   deletedBy String?
 
-  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  roles    UserRole[]
-  employee Employee?
-  stockMovements   StockMovement[]
-  stockAdjustments StockAdjustment[]
+  org                         Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  roles                       UserRole[]
+  employee                    Employee?
+  stockMovements              StockMovement[]
+  stockAdjustments            StockAdjustment[]
+  postedInventoryTransactions InventoryTransaction[] @relation("InventoryTransactionPostedBy")
 
   @@unique([orgId, email])
+  @@unique([id, orgId])
   @@index([orgId])
   @@index([orgId, isActive])
   @@map("users")
@@ -297,12 +313,13 @@ model Product {
   deletedAt   DateTime?
   deletedBy   String?
 
-  org      Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  category ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  inventoryExtension InventoryProductExtension?
-  stockBalances      StockBalance[]
-  stockMovements     StockMovement[]
-  stockAdjustments   StockAdjustment[]
+  org                       Organization               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  category                  ProductCategory?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inventoryExtension        InventoryProductExtension?
+  stockBalances             StockBalance[]
+  stockMovements            StockMovement[]
+  stockAdjustments          StockAdjustment[]
+  inventoryTransactionLines InventoryTransactionLine[]
 
   @@unique([orgId, code])
   @@unique([id, orgId])
@@ -325,7 +342,8 @@ model Customer {
   deletedAt DateTime?
   deletedBy String?
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org                   Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inventoryTransactions InventoryTransaction[]
 
   @@unique([id, orgId])
   @@index([orgId, name])
@@ -347,7 +365,8 @@ model Supplier {
   deletedAt DateTime?
   deletedBy String?
 
-  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org                   Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inventoryTransactions InventoryTransaction[]
 
   @@unique([id, orgId])
   @@index([orgId, name])
@@ -370,11 +389,14 @@ model Warehouse {
   deletedAt DateTime?
   deletedBy String?
 
-  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  branch Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  stockBalances    StockBalance[]
-  stockMovements   StockMovement[]
-  stockAdjustments StockAdjustment[]
+  org                              Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  branch                           Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  stockBalances                    StockBalance[]
+  stockMovements                   StockMovement[]
+  stockAdjustments                 StockAdjustment[]
+  inventoryTransactions            InventoryTransaction[] @relation("InventoryTransactionWarehouse")
+  sourceInventoryTransactions      InventoryTransaction[] @relation("InventoryTransactionSourceWarehouse")
+  destinationInventoryTransactions InventoryTransaction[] @relation("InventoryTransactionDestinationWarehouse")
 
   @@unique([orgId, code])
   @@unique([id, orgId])
@@ -425,28 +447,34 @@ model StockBalance {
 }
 
 model StockMovement {
-  id                String   @id @default(cuid())
-  orgId             String
-  productId         String
-  warehouseId       String
-  type              String
-  quantityDelta     Decimal  @db.Decimal(18, 4)
-  resultingQuantity Decimal? @db.Decimal(18, 4)
-  sourceType        String?
-  sourceId          String?
-  reason            String?
-  occurredAt        DateTime @default(now())
-  createdBy         String
-  createdAt         DateTime @default(now())
+  id                         String   @id @default(cuid())
+  orgId                      String
+  productId                  String
+  warehouseId                String
+  type                       String
+  quantityDelta              Decimal  @db.Decimal(18, 4)
+  resultingQuantity          Decimal? @db.Decimal(18, 4)
+  sourceType                 String?
+  sourceId                   String?
+  inventoryTransactionId     String?
+  inventoryTransactionLineId String?
+  reason                     String?
+  occurredAt                 DateTime @default(now())
+  createdBy                  String
+  createdAt                  DateTime @default(now())
 
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  product   Product      @relation(fields: [productId, orgId], references: [id, orgId])
-  warehouse Warehouse    @relation(fields: [warehouseId, orgId], references: [id, orgId])
-  actor     User         @relation(fields: [createdBy], references: [id])
+  org                      Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  product                  Product                   @relation(fields: [productId, orgId], references: [id, orgId])
+  warehouse                Warehouse                 @relation(fields: [warehouseId, orgId], references: [id, orgId])
+  actor                    User                      @relation(fields: [createdBy], references: [id])
+  inventoryTransaction     InventoryTransaction?     @relation("StockMovementTransaction", fields: [inventoryTransactionId, orgId], references: [id, orgId], onDelete: Restrict)
+  inventoryTransactionLine InventoryTransactionLine? @relation("StockMovementTransactionLine", fields: [inventoryTransactionLineId, inventoryTransactionId, orgId], references: [id, transactionId, orgId], onDelete: Restrict)
 
   @@index([orgId, productId, occurredAt])
   @@index([orgId, warehouseId, occurredAt])
   @@index([orgId, sourceType, sourceId])
+  @@index([orgId, inventoryTransactionId])
+  @@index([orgId, inventoryTransactionLineId])
   @@map("stock_movements")
 }
 
@@ -477,4 +505,79 @@ model StockAdjustment {
   @@index([orgId, createdBy])
   @@index([orgId, deletedAt])
   @@map("stock_adjustments")
+}
+
+model InventoryTransaction {
+  id                      String                     @id @default(cuid())
+  orgId                   String
+  type                    InventoryTransactionType
+  status                  InventoryTransactionStatus @default(POSTED)
+  transactionNumber       String
+  referenceNumber         String?
+  referenceDate           DateTime?                  @db.Date
+  supplierId              String?
+  customerId              String?
+  warehouseId             String?
+  sourceWarehouseId       String?
+  destinationWarehouseId  String?
+  reason                  String?
+  notes                   String?
+  postedAt                DateTime                   @default(now())
+  postedByUserId          String
+  reversalOfTransactionId String?
+  idempotencyKeyHash      String?
+  requestHash             String?
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+
+  org                  Organization               @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  supplier             Supplier?                  @relation(fields: [supplierId, orgId], references: [id, orgId], onDelete: Restrict)
+  customer             Customer?                  @relation(fields: [customerId, orgId], references: [id, orgId], onDelete: Restrict)
+  warehouse            Warehouse?                 @relation("InventoryTransactionWarehouse", fields: [warehouseId, orgId], references: [id, orgId], onDelete: Restrict)
+  sourceWarehouse      Warehouse?                 @relation("InventoryTransactionSourceWarehouse", fields: [sourceWarehouseId, orgId], references: [id, orgId], onDelete: Restrict)
+  destinationWarehouse Warehouse?                 @relation("InventoryTransactionDestinationWarehouse", fields: [destinationWarehouseId, orgId], references: [id, orgId], onDelete: Restrict)
+  postedBy             User                       @relation("InventoryTransactionPostedBy", fields: [postedByUserId, orgId], references: [id, orgId], onDelete: Restrict)
+  reversalOf           InventoryTransaction?      @relation("InventoryTransactionReversal", fields: [reversalOfTransactionId, orgId], references: [id, orgId], onDelete: Restrict)
+  reversal             InventoryTransaction?      @relation("InventoryTransactionReversal")
+  lines                InventoryTransactionLine[]
+  stockMovements       StockMovement[]            @relation("StockMovementTransaction")
+
+  @@unique([id, orgId])
+  @@unique([orgId, transactionNumber])
+  @@unique([orgId, idempotencyKeyHash])
+  @@unique([reversalOfTransactionId, orgId])
+  @@index([orgId, type, status, referenceDate])
+  @@index([orgId, warehouseId, referenceDate])
+  @@index([orgId, sourceWarehouseId, referenceDate])
+  @@index([orgId, destinationWarehouseId, referenceDate])
+  @@index([orgId, supplierId, referenceDate])
+  @@index([orgId, customerId, referenceDate])
+  @@index([orgId, postedAt])
+  @@index([orgId, postedByUserId, postedAt])
+  @@map("inventory_transactions")
+}
+
+model InventoryTransactionLine {
+  id            String   @id @default(cuid())
+  orgId         String
+  transactionId String
+  productId     String
+  quantity      Decimal  @db.Decimal(18, 4)
+  unit          String
+  lineNumber    Int
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  org            Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transaction    InventoryTransaction @relation(fields: [transactionId, orgId], references: [id, orgId], onDelete: Restrict)
+  product        Product              @relation(fields: [productId, orgId], references: [id, orgId], onDelete: Restrict)
+  stockMovements StockMovement[]      @relation("StockMovementTransactionLine")
+
+  @@unique([id, orgId])
+  @@unique([id, transactionId, orgId])
+  @@unique([orgId, transactionId, lineNumber])
+  @@index([orgId, productId])
+  @@index([orgId, transactionId])
+  @@map("inventory_transaction_lines")
 }

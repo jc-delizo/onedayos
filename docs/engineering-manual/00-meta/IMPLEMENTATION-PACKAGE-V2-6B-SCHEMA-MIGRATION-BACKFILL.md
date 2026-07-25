@@ -1,7 +1,7 @@
 # Implementation Package — V2-6B Schema, Migration, and Backfill Foundation
 
-Status: Ready for Founder Approval
-Implementation Allowed: No — explicit Founder authorization required
+Status: Founder Accepted on 2026-07-25
+Implementation Allowed: Complete — no further V2-6B implementation authorized by this status
 
 ## Scope
 
@@ -82,4 +82,5 @@ Before canonical writes, disable the feature and remove only new verified links/
 
 ## Dependency
 
-V2-6C remains blocked until V2-6B acceptance. V2-6B approval does not authorize V2-6C or sandbox migration execution.
+V2-6C is eligible for explicit Founder approval. V2-6B acceptance does not authorize V2-6C or
+sandbox migration/backfill execution.

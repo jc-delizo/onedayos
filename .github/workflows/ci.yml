@@ -9,6 +9,7 @@ on:
 jobs:
   foundation-gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -16,9 +17,15 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=moderate
+      - run: npm run check:audit-policy
+      - name: Record raw full audit
+        continue-on-error: true
+        run: npm audit --audit-level=high
       - run: npm run check:env
       - run: npm run check:prisma
-      - run: npm run lint
+      - name: Lint (bounded)
+        run: timeout 10m npm run lint
       - run: npm run typecheck
       - run: npm run check:architecture
       - run: npm run check:generated

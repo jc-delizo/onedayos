@@ -42,15 +42,22 @@ export function RouteModal({
   const [confirmingDiscard, setConfirmingDiscard] = useState(false)
   const continueRef = useRef<HTMLButtonElement>(null)
   const bypassPopRef = useRef(false)
+  const fallbackTimerRef = useRef<number | null>(null)
 
   const navigateClosed = useCallback(() => {
     setOpen(false)
     router.back()
-    window.setTimeout(() => {
+    if (fallbackTimerRef.current !== null) window.clearTimeout(fallbackTimerRef.current)
+    fallbackTimerRef.current = window.setTimeout(() => {
       const current = `${window.location.pathname}?${window.location.search.replace(/^\?/, '')}`
       if (current === openedUrl) router.replace(closeHref as never)
+      fallbackTimerRef.current = null
     }, 150)
   }, [closeHref, openedUrl, router])
+
+  useEffect(() => () => {
+    if (fallbackTimerRef.current !== null) window.clearTimeout(fallbackTimerRef.current)
+  }, [])
 
   const requestClose = useCallback(() => {
     if (dirty) {
