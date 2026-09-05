@@ -91,11 +91,31 @@ export const CANONICAL_DEMO_WAREHOUSE = {
   address: 'Sandbox demo warehouse',
 } as const
 
+export const CANONICAL_DEMO_SECONDARY_WAREHOUSE = {
+  code: 'SECONDARY',
+  name: 'Secondary Warehouse',
+  address: 'Sandbox secondary demo warehouse',
+} as const
+
 export const CANONICAL_DEMO_SUPPLIER = {
   name: 'Demo Supplier Co.',
   email: 'supplier@example.test',
   phone: '+10000000000',
   address: 'Sandbox supplier address',
+} as const
+
+export const CANONICAL_DEMO_CUSTOMER = {
+  name: 'Demo Customer',
+  email: 'customer@example.test',
+  phone: '+10000000001',
+  address: 'Sandbox customer address',
+} as const
+
+export const CANONICAL_V2_REFERENCE_NUMBERS = {
+  receipt: 'DEMO-REC-001',
+  transfer: 'DEMO-TRF-001',
+  issue: 'DEMO-ISS-001',
+  adjustment: 'DEMO-ADJ-001',
 } as const
 
 export const CANONICAL_DEMO_PRODUCTS = [

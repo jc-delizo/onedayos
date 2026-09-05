@@ -8,6 +8,15 @@
 - The Warehouse Operator profile is unchanged and has no Export control.
 - Automated export and accessibility checks are regression evidence, not formal WCAG or public-demo approval.
 
+## V2-6D Transaction Cutover Evidence
+
+- Receipt, Issue, Transfer, and Adjustment lists use server-mode Data Table V2 with permission-aware create, detail, reverse, and export actions.
+- Create, detail, and reverse routes have URL-addressable modal interception and direct full-page fallback.
+- Posted and reversed transactions are read-only; reversal requires a reason and exact type permission.
+- Warehouse Operator sees only its V2 read/create operations and Customer read; reverse and transaction export are withheld.
+- Dashboard uses canonical receipt/issue/adjustment/reversal movement directions and excludes transfers from organization-wide inbound/outbound totals.
+- Process Flow becomes Current only after the verified controlled cutover. Manual keyboard, screen-reader, mobile, and representative-user review remain pending.
+
 ## Status
 
 Implementation Conformance Complete  

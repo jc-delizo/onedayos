@@ -1,6 +1,6 @@
 import { sdk } from '@/sdk/server'
 import { ProcessFlowPage } from '@/components/onedayos'
-import { inventoryProcessFlow } from '@/modules/inventory/process-flow'
+import { inventoryProcessFlowForRuntime } from '@/modules/inventory/process-flow'
 import { INVENTORY_PERMISSIONS } from '@/modules/inventory/permissions'
 import { InventoryShell } from '../_components/inventory-shell'
 
@@ -11,7 +11,10 @@ export default async function InventoryProcessFlowPage({ params }: { params: Pro
 
   return (
     <InventoryShell orgSlug={orgSlug} activeItem="process-flow">
-      <ProcessFlowPage breadcrumb="Inventory / Process Flow" definition={inventoryProcessFlow} />
+      <ProcessFlowPage
+        breadcrumb="Inventory / Process Flow"
+        definition={inventoryProcessFlowForRuntime(sdk.runtime?.isInventoryV2Enabled?.() ?? false)}
+      />
     </InventoryShell>
   )
 }

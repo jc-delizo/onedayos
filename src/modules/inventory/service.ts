@@ -141,6 +141,12 @@ const DASHBOARD_MOVEMENT_TYPES = [
   'opening_balance',
   'adjustment_in',
   'adjustment_out',
+  'receipt_in',
+  'issue_out',
+  'transfer_in',
+  'transfer_out',
+  'reversal_in',
+  'reversal_out',
 ] as const
 
 export const DASHBOARD_AGGREGATION_MAX_CANDIDATES = 50_000
@@ -234,6 +240,7 @@ function utcDateKey(value: Date | string): string {
 export function buildMovementTrend(
   records: Array<Pick<StockMovementRecord, 'type' | 'quantityDelta' | 'occurredAt'>>,
   now: Date,
+  options: { inventoryV2Enabled?: boolean } = {},
 ): { data: MovementTrendDatum[]; start: Date; end: Date } {
   const today = startOfUtcDay(now)
   const start = addUtcDays(today, -29)
@@ -253,12 +260,20 @@ export function buildMovementTrend(
         500,
       )
     }
+    if (!options.inventoryV2Enabled && !['opening_balance', 'adjustment_in', 'adjustment_out'].includes(record.type)) {
+      throw new InventoryServiceError(
+        'The legacy movement trend contains a V2 movement while Inventory V2 is disabled.',
+        'INTERNAL_ERROR',
+        500,
+      )
+    }
 
     const bucket = byDate.get(utcDateKey(record.occurredAt))
     if (!bucket) continue
+    if (record.type === 'transfer_in' || record.type === 'transfer_out') continue
     const magnitude = unitsToNumber(decimalToUnits(record.quantityDelta))
 
-    if (record.type === 'opening_balance' || record.type === 'adjustment_in') {
+    if (['opening_balance', 'adjustment_in', 'receipt_in', 'reversal_in'].includes(record.type)) {
       bucket.inbound += Math.abs(magnitude)
     } else {
       bucket.outbound += Math.abs(magnitude)
@@ -687,7 +702,9 @@ export class InventoryService {
     })
 
     const stockSummary = buildDashboardStockSummary(extensions, balances, warehouses)
-    const movementTrend = buildMovementTrend(trendRecords, now)
+    const movementTrend = buildMovementTrend(trendRecords, now, {
+      inventoryV2Enabled: sdk.runtime?.isInventoryV2Enabled?.() ?? false,
+    })
 
     return {
       ...stockSummary,

@@ -13,6 +13,9 @@ import type {
   StockLevelListItem,
   StockMovementListItem,
 } from '@/modules/inventory/types'
+import { transactionQuerySchema, type InventoryTransactionType } from '@/modules/inventory/transactions/schemas'
+import { InventoryTransactionService } from '@/modules/inventory/transactions/service'
+import type { InventoryTransactionDto } from '@/modules/inventory/transactions/ui-types'
 import {
   ProductService,
   ProductCategoryService,
@@ -117,10 +120,61 @@ const adjustmentColumns: readonly ExportColumn<StockAdjustmentListItem>[] = [
   { id: 'createdBy', header: 'Created By', getValue: (row) => row.createdByName },
 ]
 
+const transactionColumns: readonly ExportColumn<InventoryTransactionDto>[] = [
+  { id: 'transactionNumber', header: 'Transaction Number', getValue: (row) => row.transactionNumber, required: true },
+  { id: 'type', header: 'Type', getValue: (row) => row.type, required: true },
+  { id: 'status', header: 'Status', getValue: (row) => row.status, required: true },
+  { id: 'postedAt', header: 'Posted At', getValue: (row) => new Date(row.postedAt) },
+  { id: 'referenceDate', header: 'Reference Date', getValue: (row) => row.referenceDate ? new Date(row.referenceDate) : null },
+  { id: 'referenceNumber', header: 'Reference Number', getValue: (row) => row.referenceNumber ?? null },
+  { id: 'warehouse', header: 'Warehouse', getValue: (row) => row.warehouse?.name ?? null },
+  { id: 'sourceWarehouse', header: 'Source Warehouse', getValue: (row) => row.sourceWarehouse?.name ?? null },
+  { id: 'destinationWarehouse', header: 'Destination Warehouse', getValue: (row) => row.destinationWarehouse?.name ?? null },
+  { id: 'supplier', header: 'Supplier', getValue: (row) => row.supplier?.name ?? null },
+  { id: 'customer', header: 'Customer', getValue: (row) => row.customer?.name ?? null },
+  { id: 'lineCount', header: 'Line Count', getValue: (row) => row.lines.length },
+  { id: 'reversal', header: 'Reversal Transaction', getValue: (row) => row.reversal?.transactionNumber ?? null },
+  { id: 'reversalOf', header: 'Reversal Of', getValue: (row) => row.reversalOf?.transactionNumber ?? null },
+  { id: 'reason', header: 'Reason', getValue: (row) => row.reason ?? null },
+]
+
+const transactionTypeByKind = {
+  receipts: 'RECEIPT',
+  issues: 'ISSUE',
+  transfers: 'TRANSFER',
+  adjustments: 'ADJUSTMENT',
+} as const satisfies Record<string, InventoryTransactionType>
+
+const transactionReadPermission = {
+  RECEIPT: INVENTORY_PERMISSIONS.RECEIPT_READ,
+  ISSUE: INVENTORY_PERMISSIONS.ISSUE_READ,
+  TRANSFER: INVENTORY_PERMISSIONS.TRANSFER_READ,
+  ADJUSTMENT: INVENTORY_PERMISSIONS.ADJUSTMENT_READ,
+} as const
+
 export function inventoryExportResource(
   ctx: PlatformContext,
-  kind: 'stock-levels' | 'stock-movements' | 'stock-adjustments',
+  kind: 'stock-levels' | 'stock-movements' | 'stock-adjustments' | keyof typeof transactionTypeByKind,
 ): ExportResource {
+  if (kind in transactionTypeByKind) {
+    const type = transactionTypeByKind[kind as keyof typeof transactionTypeByKind]
+    return resource({
+      ctx,
+      name: `inventory-${kind}`,
+      worksheetName: kind[0].toUpperCase() + kind.slice(1),
+      querySchema: transactionQuerySchema.omit({ page: true, pageSize: true, type: true }),
+      columns: transactionColumns,
+      defaultColumns: transactionColumns.map((column) => column.id),
+      readPermission: transactionReadPermission[type],
+      exportPermission: INVENTORY_PERMISSIONS.TRANSACTION_EXPORT,
+      async listPage(context, query) {
+        return InventoryTransactionService.list(context, type, query as never) as unknown as Promise<{
+          rows: InventoryTransactionDto[]
+          meta: { total: number }
+        }>
+      },
+    })
+  }
   if (kind === 'stock-levels') {
     return resource({
       ctx,

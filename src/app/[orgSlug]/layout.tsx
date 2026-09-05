@@ -14,7 +14,9 @@ export default async function OrgLayout({
 }) {
   const { orgSlug } = await params
   const ctx = await sdk.auth.requirePageOrgContext(orgSlug)
-  const model = buildTenantAppShellModel(ctx)
+  const model = buildTenantAppShellModel(ctx, {
+    inventoryV2Enabled: sdk.runtime?.isInventoryV2Enabled?.() ?? false,
+  })
 
   return <TenantAppShell model={model}>{children}{modal}</TenantAppShell>
 }

@@ -2,6 +2,13 @@
 
 This plan defines what can be captured from the controlled sandbox for future website or sales material. It does not approve public website demo claims.
 
+## Current Portfolio Asset Decision — 2026-09-06
+
+The configured sandbox cannot currently pass its runtime gate because its Supabase endpoint no
+longer resolves. Until an approved sandbox passes the gates below, the portfolio may use only a
+clearly labeled illustrative Inventory interface with synthetic data. It must not describe that
+illustration as a live or controlled-sandbox screenshot.
+
 ## Allowed Assets After Gates Pass
 
 - Cropped screenshots of the Apps launcher.

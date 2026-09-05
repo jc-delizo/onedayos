@@ -12,10 +12,13 @@ import {
 type RouteContext = { params: Promise<{ orgSlug: string }> }
 
 export function createInventoryExportPost(
-  kind: 'stock-levels' | 'stock-movements' | 'stock-adjustments',
+  kind: 'stock-levels' | 'stock-movements' | 'stock-adjustments' | 'receipts' | 'issues' | 'transfers' | 'adjustments',
 ) {
   return function POST(request: NextRequest, context: RouteContext) {
     return sdk.api.handle(async (handledRequest, requestId) => {
+      if (['receipts', 'issues', 'transfers', 'adjustments'].includes(kind)) {
+        sdk.runtime.requireInventoryV2()
+      }
       const { orgSlug } = await context.params
       const ctx = await sdk.auth.requireApiModuleContext(handledRequest, orgSlug, 'inventory', requestId)
       return handleExportRoute(handledRequest, ctx, inventoryExportResource(ctx, kind))

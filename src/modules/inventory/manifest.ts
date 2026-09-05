@@ -88,6 +88,30 @@ export const inventoryManifest = defineModuleManifest({
       label: 'Stock Adjustments',
       requiredPermission: INVENTORY_PERMISSIONS.STOCK_ADJUSTMENT_READ,
     },
+    {
+      kind: 'page',
+      path: '/inventory/transactions/receipts',
+      label: 'Receipts',
+      requiredPermission: INVENTORY_PERMISSIONS.RECEIPT_READ,
+    },
+    {
+      kind: 'page',
+      path: '/inventory/transactions/issues',
+      label: 'Issues',
+      requiredPermission: INVENTORY_PERMISSIONS.ISSUE_READ,
+    },
+    {
+      kind: 'page',
+      path: '/inventory/transactions/transfers',
+      label: 'Transfers',
+      requiredPermission: INVENTORY_PERMISSIONS.TRANSFER_READ,
+    },
+    {
+      kind: 'page',
+      path: '/inventory/transactions/adjustments',
+      label: 'Adjustments',
+      requiredPermission: INVENTORY_PERMISSIONS.ADJUSTMENT_READ,
+    },
   ],
   apis: [
     {
@@ -163,6 +187,11 @@ export const inventoryManifest = defineModuleManifest({
       path: '/api/orgs/[orgSlug]/inventory/transactions/[id]/reverse',
       requiredPermission: INVENTORY_PERMISSIONS.RECEIPT_REVERSE,
     },
+    ...(['receipts', 'issues', 'transfers', 'adjustments'] as const).map((resource) => ({
+      method: 'POST' as const,
+      path: `/api/orgs/[orgSlug]/inventory/transactions/${resource}/export`,
+      requiredPermission: INVENTORY_PERMISSIONS.TRANSACTION_EXPORT,
+    })),
   ],
   events: inventoryEventManifest,
   settings: inventorySettings,

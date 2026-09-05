@@ -7,8 +7,11 @@ import { createClient } from '@supabase/supabase-js'
 import { resolveSupabaseAdminApiKey } from '../src/kernel/env/supabase-admin-key'
 import {
   CANONICAL_DEMO_CATEGORY,
+  CANONICAL_DEMO_CUSTOMER,
   CANONICAL_DEMO_PRODUCTS,
+  CANONICAL_DEMO_SECONDARY_WAREHOUSE,
   CANONICAL_DEMO_SUPPLIER,
+  CANONICAL_V2_REFERENCE_NUMBERS,
   CANONICAL_DEMO_WAREHOUSE,
   CONTROLLED_DEMO_REQUIRED_ENV,
   hasPlaceholderValue,
@@ -17,6 +20,7 @@ import {
   permissionKey,
   usesPort1320,
   WAREHOUSE_OPERATOR_PERMISSION_KEYS,
+  WAREHOUSE_OPERATOR_V2_PERMISSION_PROFILE,
   WAREHOUSE_OPERATOR_ROLE_NAME,
 } from './demo-ops'
 
@@ -55,6 +59,8 @@ export type DemoDataSnapshot = {
   unsupportedMovementTypeCount: number
   canonicalBalancesExact: boolean
   coffeeBeansLowStock: boolean
+  demoCustomerExists: boolean
+  canonicalV2TransactionCount: number
 }
 
 export type DemoReadinessDeps = {
@@ -164,11 +170,16 @@ export function checkApplicationSource(root: string, readFile = (path: string) =
   ]
 }
 
-export function checksFromDemoData(snapshot: DemoDataSnapshot): DemoCheck[] {
+export function checksFromDemoData(snapshot: DemoDataSnapshot, inventoryV2Enabled = false): DemoCheck[] {
   const sortedWarehousePermissions = [...snapshot.warehousePermissionProfile].sort()
+  const expectedPermissionKeys = (inventoryV2Enabled
+    ? WAREHOUSE_OPERATOR_V2_PERMISSION_PROFILE
+    : WAREHOUSE_OPERATOR_PERMISSION_KEYS.map((key) => ({ module: key.split('.')[0], resource: key.split('.')[1], action: key.split('.')[2] })))
+    .map(permissionKey)
+    .sort()
   const exactWarehouseProfile =
-    sortedWarehousePermissions.length === WAREHOUSE_OPERATOR_PERMISSION_KEYS.length &&
-    sortedWarehousePermissions.every((permission, index) => permission === WAREHOUSE_OPERATOR_PERMISSION_KEYS[index])
+    sortedWarehousePermissions.length === expectedPermissionKeys.length &&
+    sortedWarehousePermissions.every((permission, index) => permission === expectedPermissionKeys[index])
 
   return [
     check('Demo org exists', snapshot.orgExists, 'Run npm run demo:provision.'),
@@ -188,9 +199,9 @@ export function checksFromDemoData(snapshot: DemoDataSnapshot): DemoCheck[] {
     check('Exactly three active Products exist', snapshot.activeProductCount === 3, 'Run npm run demo:reset to remove noncanonical sandbox Product rows.'),
     check('Canonical Supplier exists', snapshot.supplierExists, 'Run npm run demo:provision.'),
     check('Canonical Warehouse exists', snapshot.warehouseExists, 'Run npm run demo:provision.'),
-    check('Exactly one active Warehouse exists', snapshot.activeWarehouseCount === 1, 'Run npm run demo:reset to remove noncanonical sandbox Warehouse rows.'),
+    check(inventoryV2Enabled ? 'Exactly two active Warehouses exist' : 'Exactly one active Warehouse exists', snapshot.activeWarehouseCount === (inventoryV2Enabled ? 2 : 1), 'Run npm run demo:reset to repair canonical sandbox Warehouses.'),
     check('Three InventoryProductExtension rows exist', snapshot.productExtensionCount === 3, 'Run npm run demo:provision.'),
-    check('Three StockBalance rows exist', snapshot.stockBalanceCount === 3, 'Run npm run demo:provision.'),
+    check(inventoryV2Enabled ? 'Six StockBalance rows exist' : 'Three StockBalance rows exist', snapshot.stockBalanceCount === (inventoryV2Enabled ? 6 : 3), 'Run npm run demo:provision.'),
     check('StockMovement rows exist', snapshot.stockMovementCount > 0, 'Run npm run demo:provision.'),
     check('StockAdjustment rows exist', snapshot.stockAdjustmentCount > 0, 'Run npm run demo:provision.'),
     check('Recent inbound demo movement exists', snapshot.recentInboundMovementCount > 0, 'Run npm run demo:reset to rebuild recent canonical activity.'),
@@ -199,6 +210,10 @@ export function checksFromDemoData(snapshot: DemoDataSnapshot): DemoCheck[] {
     check('No unsupported demo movement type exists', snapshot.unsupportedMovementTypeCount === 0, 'Run npm run demo:reset to repair the movement vocabulary.'),
     check('Canonical final balances are exact', snapshot.canonicalBalancesExact, 'Run npm run demo:reset to repair canonical balances.'),
     check('Coffee Beans canonical low-stock state exists', snapshot.coffeeBeansLowStock, 'Run npm run demo:reset, then npm run demo:check.'),
+    ...(inventoryV2Enabled ? [
+      check('Demo Customer exists', snapshot.demoCustomerExists, 'Run npm run demo:reset.'),
+      check('Exactly four canonical V2 demo transactions exist', snapshot.canonicalV2TransactionCount === 4, 'Run npm run demo:reset.'),
+    ] : []),
   ]
 }
 
@@ -284,6 +299,8 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
         unsupportedMovementTypeCount: 0,
         canonicalBalancesExact: false,
         coffeeBeansLowStock: false,
+        demoCustomerExists: false,
+        canonicalV2TransactionCount: 0,
       }
     }
 
@@ -297,6 +314,7 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       products,
       supplier,
       warehouse,
+      customer,
     ] = await Promise.all([
       prisma.subscription.findUnique({ where: { orgId: org.id }, select: { id: true } }),
       prisma.orgModule.findUnique({ where: { orgId_moduleId: { orgId: org.id, moduleId: 'inventory' } }, select: { isEnabled: true } }),
@@ -314,6 +332,7 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       }),
       prisma.supplier.findFirst({ where: { orgId: org.id, name: CANONICAL_DEMO_SUPPLIER.name, deletedAt: null }, select: { id: true } }),
       prisma.warehouse.findFirst({ where: { orgId: org.id, code: CANONICAL_DEMO_WAREHOUSE.code, deletedAt: null }, select: { id: true } }),
+      prisma.customer.findFirst({ where: { orgId: org.id, name: CANONICAL_DEMO_CUSTOMER.name, deletedAt: null }, select: { id: true } }),
     ])
 
     const adminRoleIds = adminUser
@@ -362,6 +381,7 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       recentAdjustmentCount,
       unsupportedMovementTypeCount,
       canonicalBalances,
+      canonicalV2TransactionCount,
     ] = await Promise.all([
       prisma.product.count({ where: { orgId: org.id, isActive: true, deletedAt: null } }),
       prisma.warehouse.count({ where: { orgId: org.id, isActive: true, deletedAt: null } }),
@@ -372,14 +392,14 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       prisma.stockMovement.count({
         where: {
           orgId: org.id,
-          type: { in: ['opening_balance', 'adjustment_in'] },
+          type: { in: ['opening_balance', 'adjustment_in', 'receipt_in', 'reversal_in'] },
           occurredAt: { gte: rangeStart, lt: rangeEnd },
         },
       }),
       prisma.stockMovement.count({
         where: {
           orgId: org.id,
-          type: 'adjustment_out',
+          type: { in: ['adjustment_out', 'issue_out', 'reversal_out'] },
           occurredAt: { gte: rangeStart, lt: rangeEnd },
         },
       }),
@@ -393,7 +413,7 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       prisma.stockMovement.count({
         where: {
           orgId: org.id,
-          type: { notIn: implementedMovementTypes },
+          type: { notIn: [...implementedMovementTypes, 'receipt_in', 'issue_out', 'transfer_in', 'transfer_out', 'reversal_in', 'reversal_out'] },
         },
       }),
       prisma.stockBalance.findMany({
@@ -403,15 +423,23 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
           product: { select: { code: true } },
         },
       }),
+      prisma.inventoryTransaction.count({ where: { orgId: org.id, referenceNumber: { in: Object.values(CANONICAL_V2_REFERENCE_NUMBERS) } } }),
     ])
     const expectedBalances = new Map<string, number>(
-      CANONICAL_DEMO_PRODUCTS.map((product) => [product.code, Number(product.quantity)]),
+      (process.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED === 'true'
+        ? [['WAT-500', 130], ['TEA-1L', 40], ['COF-1KG', 8]]
+        : CANONICAL_DEMO_PRODUCTS.map((product) => [product.code, Number(product.quantity)])),
     )
+    const canonicalBalanceTotals = new Map<string, number>()
+    for (const balance of canonicalBalances) {
+      canonicalBalanceTotals.set(
+        balance.product.code,
+        (canonicalBalanceTotals.get(balance.product.code) ?? 0) + Number(balance.quantity),
+      )
+    }
     const canonicalBalancesExact =
-      canonicalBalances.length === CANONICAL_DEMO_PRODUCTS.length &&
-      canonicalBalances.every((balance) => (
-        Number(balance.quantity) === expectedBalances.get(balance.product.code)
-      ))
+      canonicalBalanceTotals.size === expectedBalances.size &&
+      [...expectedBalances.entries()].every(([code, quantity]) => canonicalBalanceTotals.get(code) === quantity)
     const coffeeProduct = products.find((product) => product.code === 'COF-1KG')
     const [coffeeExtension, coffeeBalance] = coffeeProduct
       ? await Promise.all([
@@ -460,6 +488,8 @@ export async function createLiveDemoDataSnapshot(env: Record<string, string | un
       unsupportedMovementTypeCount,
       canonicalBalancesExact,
       coffeeBeansLowStock,
+      demoCustomerExists: Boolean(customer),
+      canonicalV2TransactionCount,
     }
   } finally {
     await prisma.$disconnect()
@@ -473,7 +503,7 @@ export async function runDemoReadinessChecks(deps: DemoReadinessDeps): Promise<D
   const canCheckData = envChecks.every((item) => item.ok)
 
   if (canCheckData && deps.getDataSnapshot) {
-    checks.push(...checksFromDemoData(await deps.getDataSnapshot()))
+    checks.push(...checksFromDemoData(await deps.getDataSnapshot(), deps.env.ONEDAYOS_INVENTORY_V2_RUNTIME_ENABLED === 'true'))
   } else if (!canCheckData) {
     checks.push(check('Database readiness checks skipped until env gate passes', false, 'Fix failed env checks, then rerun npm run demo:check.'))
   }

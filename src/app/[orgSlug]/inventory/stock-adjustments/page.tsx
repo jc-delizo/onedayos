@@ -1,4 +1,5 @@
 import { sdk } from '@/sdk/server'
+import { redirect } from 'next/navigation'
 import { ListPage } from '@/components/onedayos'
 import { LinkButton } from '@/components/ui/button'
 import { INVENTORY_PERMISSIONS } from '@/modules/inventory/permissions'
@@ -15,6 +16,9 @@ export default async function StockAdjustmentsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { orgSlug } = await params
+  if (sdk.runtime.isInventoryV2Enabled()) {
+    redirect(`/${orgSlug}/inventory/transactions/adjustments`)
+  }
   const ctx = await sdk.auth.requirePageModuleContext(orgSlug, 'inventory')
   const query = stockAdjustmentQuerySchema.parse(await searchParams)
   const [result, warehouseOptions] = await Promise.all([

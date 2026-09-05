@@ -54,5 +54,6 @@ roadmap is amended. Public self-service demo approval and production readiness r
 Website asset production remains paused.
 
 V2-6C did not apply that migration or backfill and did not enable the controlled runtime.
-Controlled-sandbox migration/backfill/provisioning/runtime enablement and V2-6D cutover remain
-blocked pending explicit authorization. V2-7 and V2-8 remain blocked.
+V2-6D controlled-sandbox migration, backfill, permission provisioning, canonical demo cutover,
+and runtime enablement completed on 2026-07-25. Founder acceptance remains pending. V2-7 and V2-8
+remain blocked; public self-service demo and production readiness remain unapproved.

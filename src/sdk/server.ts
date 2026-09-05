@@ -75,7 +75,9 @@ async function requireSdkPageModuleContext(
   requestId?: string,
 ): Promise<PlatformContext> {
   try {
-    return await requireApiModuleContext(orgSlug, moduleId, { requestId })
+    const ctx = await requireSdkPageOrgContext(orgSlug, requestId)
+    await requireModuleEnabled(ctx, moduleId)
+    return ctx
   } catch (error) {
     hideDisabledModule(error)
   }

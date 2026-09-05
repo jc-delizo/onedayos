@@ -35,10 +35,9 @@ Explain:
 
 - Shared Records setup creates Products, Categories, Suppliers, and Warehouses.
 - Inventory Product Settings extend shared Products.
-- Stock Adjustment validates Product and Warehouse in the current organization.
-- Transactional posting creates StockAdjustment, StockMovement, and StockBalance together.
-- Stock Levels read StockBalance.
-- Stock Movements are the immutable ledger.
+- Receipts, Issues, Transfers, and Adjustments use the Inventory V2 posting engine.
+- Transactional posting creates InventoryTransaction, lines, StockMovement, and StockBalance together.
+- Each posted transaction has an immutable detail view and a controlled reversal action.
 - Low stock is visual only; no Notification Service exists yet.
 
 ## Scene 4: Product Settings
@@ -51,39 +50,40 @@ Key points:
 - Settings include stock tracking and reorder point.
 - Product name, code, unit, and category remain shared Records.
 
-## Scene 5: Stock Levels
+## Scene 5: Receipts and Stock Levels
 
-Open Stock Levels.
+Open Receipts, then Stock Levels.
 
 Expected demo data:
 
 - Bottled Water 500ml: quantity `120`, reorder point `50`
 - Iced Tea 1L: quantity `35`, reorder point `25`
-- Coffee Beans 1kg: quantity `8`, reorder point `10`
+- Coffee Beans 1kg: quantity `5`, reorder point `10`
 
 Coffee Beans should appear low stock.
 
-## Scene 6: Stock Movements
+## Scene 6: Issues, Transfers, and Adjustments
 
-Open Stock Movements.
+Open each V2 transaction list and use the New action. Show the URL-addressable modal, then a transaction detail and its reverse confirmation.
 
 Key points:
 
-- Movements are append-only ledger facts.
-- Users do not edit movements directly.
-- Each manual adjustment creates a corresponding movement.
+- The same posting service validates all four transaction types.
+- Transfers affect source and destination warehouses atomically.
+- Reversal creates new ledger facts; posted transactions are not edited.
+- The controlled demo reset restores the canonical four V2 transactions and six balances.
 
-## Scene 7: Stock Adjustment
+## Scene 7: Movement Ledger and Exports
 
-Open New Adjustment.
+Open Movement Ledger and demonstrate a bounded CSV/XLSX export from one V2 list.
 
 Show a safe positive or small negative adjustment that does not push stock below zero.
 
 Key points:
 
-- The server computes previous quantity, new quantity, and ledger balance.
-- Client does not submit `orgId`, previous quantity, new quantity, or balance after.
-- Negative resulting stock is rejected.
+- Ledger facts are append-only.
+- Tenant and permission checks are server-enforced.
+- Exports remain bounded and audit-controlled.
 
 ## Scene 8: Shared Records
 

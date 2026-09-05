@@ -14,8 +14,12 @@ function canManageOrganization(ctx: PlatformContext) {
   return can(ctx, { module: 'kernel', resource: 'organization', action: 'manage' })
 }
 
-export function buildTenantAppShellModel(ctx: PlatformContext): TenantAppShellModel {
+export function buildTenantAppShellModel(
+  ctx: PlatformContext,
+  options: { inventoryV2Enabled?: boolean } = {},
+): TenantAppShellModel {
   const inventoryEnabled = ctx.enabledModules.includes('inventory')
+  const inventoryV2Enabled = options.inventoryV2Enabled ?? false
   const orgAdmin = canManageOrganization(ctx)
 
   const relatedInventoryRecords = [
@@ -52,22 +56,28 @@ export function buildTenantAppShellModel(ctx: PlatformContext): TenantAppShellMo
           label: 'Stock Levels',
           href: orgHref(ctx, '/inventory/stock-levels'),
         },
-        {
-          id: 'inventory-stock-movements',
-          label: 'Stock Movements',
-          href: orgHref(ctx, '/inventory/stock-movements'),
-        },
-        {
-          id: 'inventory-stock-adjustments',
-          label: 'Stock Adjustments',
-          href: orgHref(ctx, '/inventory/stock-adjustments'),
-        },
+        ...(inventoryV2Enabled
+          ? [
+              { id: 'inventory-receipts', label: 'Receipts', href: orgHref(ctx, '/inventory/transactions/receipts') },
+              { id: 'inventory-issues', label: 'Issues', href: orgHref(ctx, '/inventory/transactions/issues') },
+              { id: 'inventory-transfers', label: 'Transfers', href: orgHref(ctx, '/inventory/transactions/transfers') },
+              { id: 'inventory-adjustments', label: 'Adjustments', href: orgHref(ctx, '/inventory/transactions/adjustments') },
+              { id: 'inventory-stock-movements', label: 'Movement Ledger', href: orgHref(ctx, '/inventory/stock-movements') },
+            ]
+          : [
+              { id: 'inventory-stock-movements', label: 'Stock Movements', href: orgHref(ctx, '/inventory/stock-movements') },
+              { id: 'inventory-stock-adjustments', label: 'Stock Adjustments', href: orgHref(ctx, '/inventory/stock-adjustments') },
+            ]),
       ].filter((item) => {
         if (item.id === 'inventory-dashboard') return canRead(ctx, 'inventory', 'dashboard')
         if (item.id === 'inventory-process-flow') return canRead(ctx, 'inventory', 'dashboard')
         if (item.id === 'inventory-stock-levels') return canRead(ctx, 'inventory', 'stock_level')
         if (item.id === 'inventory-stock-movements') return canRead(ctx, 'inventory', 'stock_movement')
         if (item.id === 'inventory-stock-adjustments') return canRead(ctx, 'inventory', 'stock_adjustment')
+        if (item.id === 'inventory-receipts') return canRead(ctx, 'inventory', 'receipt')
+        if (item.id === 'inventory-issues') return canRead(ctx, 'inventory', 'issue')
+        if (item.id === 'inventory-transfers') return canRead(ctx, 'inventory', 'transfer')
+        if (item.id === 'inventory-adjustments') return canRead(ctx, 'inventory', 'adjustment')
         return false
       })
     : []

@@ -41,14 +41,14 @@ Never put demo passwords in committed docs.
 2. Open Apps.
 3. Open Inventory.
 4. Explain Inventory Dashboard and Process Flow.
-5. Open Product Settings, Stock Levels, Stock Movements, and Stock Adjustments.
+5. Open Stock Levels, Receipts, Issues, Transfers, Adjustments, Movement Ledger, Dashboard, and Process Flow.
 6. Open Related Records for Products and Warehouses to show that Product and Warehouse remain shared.
 7. Switch to Organization through the app switcher.
 8. Show People, Branches & Departments, and Settings at a high level.
 9. Log out.
 10. Log in as Warehouse User.
 11. Show that Organization is not available and Inventory is focused.
-12. Post a safe stock adjustment and show the movement ledger.
+12. Post a safe canonical transaction and show its detail and movement-ledger result.
 13. Attempt a negative-stock adjustment only if useful, then explain safe rejection.
 
 ## Stop Conditions

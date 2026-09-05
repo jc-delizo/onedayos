@@ -32,3 +32,4 @@ These limitations must be stated for controlled guided demos.
 - Demo data is fake and non-sensitive.
 - Demo credentials are private `.env.local` values and must not be committed or shared publicly.
 - Stock values are for walkthrough demonstration only.
+- Inventory V2 events are best effort; there is no Durable Outbox or guaranteed external delivery.

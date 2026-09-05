@@ -2,7 +2,7 @@
 
 Status: Frozen
 Date: 2026-07
-Implementation Allowed: One package at a time; V2-6C Founder Accepted, V2-6D ready for explicit approval but not authorized
+Implementation Allowed: One package at a time; V2-6D controlled cutover complete, Founder acceptance pending
 
 Frozen sequence: `V2-1 → V2-2 → V2-3 → V2-4 → V2-5 → V2-6 → V2-7 → V2-8`.
 

@@ -4,6 +4,29 @@ Date: 2026-07-24
 
 Environment: controlled sandbox
 
+## Portfolio Readiness Recheck — 2026-09-06
+
+The previously configured Supabase sandbox endpoint no longer resolves, so authentication and
+the live-data readiness check cannot currently complete. No new website screenshots were captured
+from that runtime. The July validation below is historical evidence, not a claim that the sandbox
+is presently available.
+
+The same recheck passed Prisma validation, lint, typecheck, architecture, generated-code and UX
+guards, 68 test files / 447 tests, 5 accessibility files / 18 tests, and a production build. The
+umbrella `check:all` remains blocked at its dependency-audit step: the former development-tooling
+exception has expired and current registry data reports additional production and development
+advisories. Dependency remediation is required before the complete gate can be called green.
+
+Before another guided demo or authentic screenshot capture, configure an approved replacement
+sandbox, rerun `npm run demo:check` and `npm run check:all`, and complete the required review.
+
+## V2-6D Update — 2026-07-25
+
+Inventory V2 controlled cutover completed; Founder acceptance remains pending. The sandbox now
+uses canonical Receipt, Issue, Transfer, and Adjustment transactions, two Warehouses, Demo
+Customer, the exact V2 Warehouse Operator profile, and final organization totals Water 130, Tea
+40, Coffee 8. Public self-service demo and production readiness remain unapproved.
+
 ## Result
 
 Controlled Founder/Prospect Guided Demo Approved

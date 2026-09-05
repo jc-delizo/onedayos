@@ -37,6 +37,7 @@ export default async function InventoryPage({ params }: { params: Promise<{ orgS
     }
     throw error
   }
+  const inventoryV2Enabled = sdk.runtime?.isInventoryV2Enabled?.() ?? false
   const summaryMetrics = [
     ['Tracked Products', dashboard.kpis.trackedProducts, 'Products with active Inventory Tracking.'],
     ['Low Stock', dashboard.kpis.lowStockProducts, 'Tracked Products above zero and at or below reorder point.'],
@@ -50,7 +51,7 @@ export default async function InventoryPage({ params }: { params: Promise<{ orgS
         breadcrumb="Inventory / Dashboard"
         title="Inventory Overview"
         headerMode="compact"
-        primaryAction={<LinkButton href={`/${orgSlug}/inventory/stock-adjustments/new`} variant="primary">New Adjustment</LinkButton>}
+        primaryAction={<LinkButton href={inventoryV2Enabled ? `/${orgSlug}/inventory/transactions/adjustments/new` : `/${orgSlug}/inventory/stock-adjustments/new`} target={inventoryV2Enabled ? '_top' : undefined} variant="primary">New Adjustment</LinkButton>}
         metrics={
           <>
             {summaryMetrics.map(([label, value, description]) => (

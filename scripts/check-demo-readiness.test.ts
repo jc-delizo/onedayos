@@ -67,6 +67,8 @@ const readySnapshot: DemoDataSnapshot = {
   unsupportedMovementTypeCount: 0,
   canonicalBalancesExact: true,
   coffeeBeansLowStock: true,
+  demoCustomerExists: true,
+  canonicalV2TransactionCount: 4,
 }
 
 function sourceMap(overrides: Record<string, string> = {}) {
